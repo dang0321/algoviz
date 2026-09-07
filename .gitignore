@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.DS_Store
+
+# 편집기·OS 부스러기
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

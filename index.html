@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>algoviz — 내 코드가 움직이는 그림이 된다</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>algoviz</h1>
+  <span class="tag">내 파이썬 코드를 한 줄씩 재생한다</span>
+  <span id="status" class="status">파이썬 준비 중…</span>
+</header>
+
+<main>
+  <section class="pane pane-code">
+    <div class="pane-head">
+      <span>코드</span>
+      <select id="preset">
+        <option value="">예제 불러오기…</option>
+        <optgroup label="정렬">
+          <option value="bubble">버블 정렬</option>
+          <option value="stdinsort">입력 받아 정렬 (백준식)</option>
+          <option value="mergesort">병합 정렬 (분할정복)</option>
+          <option value="quick">퀵 정렬 (제자리)</option>
+          <option value="heap">힙 정렬</option>
+          <option value="countsort">계수 정렬</option>
+          <option value="radix">기수 정렬 (버킷)</option>
+          <option value="bj10814">나이순 정렬 (튜플 표)</option>
+        </optgroup>
+        <optgroup label="탐색과 포인터">
+          <option value="binsearch">이분 탐색</option>
+          <option value="parametric">파라메트릭 서치 (나무 자르기)</option>
+          <option value="twopointer">투 포인터</option>
+          <option value="window">슬라이딩 윈도우</option>
+          <option value="palindrome">문자열 팰린드롬</option>
+          <option value="strrev">문자열 뒤집기</option>
+        </optgroup>
+        <optgroup label="동적 계획법">
+          <option value="knapsack">냅색 DP</option>
+          <option value="lcs">최장 공통 부분수열</option>
+          <option value="lcsback">LCS 역추적 (경로 복원)</option>
+          <option value="edit">편집 거리</option>
+          <option value="palindp">회문 분할 DP (참/거짓 표)</option>
+          <option value="lis">최장 증가 부분수열</option>
+          <option value="memo">재귀 DP (메모이제이션)</option>
+          <option value="tsp">외판원 순회 (비트마스크 DP)</option>
+          <option value="prefix">누적합</option>
+        </optgroup>
+        <optgroup label="그래프">
+          <option value="bfs">그래프 BFS</option>
+          <option value="citygraph">도시 이름 그래프 (글자 노드)</option>
+          <option value="bipartite">이분 그래프 판별 (노드 색칠)</option>
+          <option value="dijkstra">다익스트라 (우선순위 큐)</option>
+          <option value="swea_dijkstra">다익스트라 (인접 행렬, SWEA식)</option>
+          <option value="bellman">벨만-포드 (간선 리스트)</option>
+          <option value="floyd">플로이드 워셜 (경유지)</option>
+          <option value="kruskal">크루스칼 MST (간선 + 유니온 파인드)</option>
+          <option value="topo">위상 정렬 (앞뒤 관계)</option>
+          <option value="unionfind">유니온 파인드</option>
+          <option value="scc">강한 연결 요소 (타잔)</option>
+          <option value="diameter">트리 지름 (BFS 두 번)</option>
+          <option value="subtree">트리 DP (서브트리 크기)</option>
+          <option value="tree">트리 순회</option>
+          <option value="bintree">이진 트리 (클래스)</option>
+        </optgroup>
+        <optgroup label="격자">
+          <option value="maze">미로 BFS</option>
+          <option value="tupleset">좌표 집합 BFS (파이썬식)</option>
+          <option value="charmaze">문자 미로</option>
+          <option value="robot">로봇 청소기 (방향)</option>
+          <option value="snail">달팽이 채우기</option>
+        </optgroup>
+        <optgroup label="자료구조">
+          <option value="trie">트라이</option>
+          <option value="linkedlist">연결리스트</option>
+          <option value="segtree">세그먼트 트리 (만들기)</option>
+          <option value="segquery">세그먼트 트리 (질의·갱신)</option>
+          <option value="counter">빈도수 세기</option>
+          <option value="counterlib">Counter 로 세기</option>
+          <option value="median">중앙값 유지 (힙 두 개)</option>
+          <option value="calc">수식 계산 (스택 두 개)</option>
+          <option value="twostackq">스택 두 개로 큐 만들기</option>
+          <option value="meeting">회의실 배정 (구간)</option>
+          <option value="points">좌표 평면 (산점도)</option>
+        </optgroup>
+        <optgroup label="재귀와 백트래킹">
+          <option value="fib">재귀 피보나치 (호출 트리)</option>
+          <option value="factorial">팩토리얼</option>
+          <option value="hanoi">하노이 탑</option>
+          <option value="perm">순열 생성</option>
+          <option value="nqueens">N-Queens</option>
+        </optgroup>
+        <optgroup label="수와 문자열">
+          <option value="sieve">에라토스테네스의 체</option>
+          <option value="factorize">소인수분해</option>
+          <option value="bitmask">비트마스크</option>
+          <option value="rle">런렝스 압축</option>
+          <option value="kmpsearch">KMP 문자열 매칭</option>
+        </optgroup>
+      </select>
+      <span class="stop-tag" id="stopTag" hidden>
+        <b id="stopTagLine"></b>줄까지<button id="stopClear" title="해제">✕</button>
+      </span>
+      <button id="run" disabled>실행</button>
+    </div>
+    <div class="editor-wrap">
+      <div class="gutter" id="gutter"></div>
+      <div class="ta-wrap">
+        <div class="dead-zone" id="deadZone"></div>
+        <div class="line-hl" id="lineHl"></div>
+        <textarea id="code" spellcheck="false" wrap="off"></textarea>
+      </div>
+    </div>
+    <div class="io">
+      <div class="io-head">
+        입력 <span class="hint">input() 이 여기서 한 줄씩 읽습니다</span>
+      </div>
+      <textarea id="stdin" spellcheck="false" wrap="off"
+                placeholder="7&#10;5 3 8 1 9 2 7"></textarea>
+    </div>
+    <div class="console" id="console"></div>
+  </section>
+
+  <section class="pane pane-viz">
+    <div class="pane-head">
+      <span>시각화</span>
+      <span id="frameLabel" class="frame-label">—</span>
+    </div>
+    <div class="stage" id="stage">
+      <div class="empty">실행을 누르면 여기서 코드가 움직입니다.</div>
+    </div>
+    <div class="player" id="player" hidden>
+      <button id="toStart" title="처음으로">⏮</button>
+      <button id="stepBack" title="한 줄 뒤로">◀</button>
+      <button id="playPause" class="primary" title="재생">▶</button>
+      <button id="stepFwd" title="한 줄 앞으로">▶|</button>
+      <button id="toEnd" title="끝으로">⏭</button>
+      <input id="scrub" type="range" min="0" max="0" value="0">
+      <div class="speed">
+        <span class="speed-label">속도</span>
+        <div class="speed-btns" id="speedBtns"></div>
+        <span class="speed-unit">줄/초</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script src="samples.js"></script>
+<script src="viz-util.js"></script>
+<script src="viz-layout.js"></script>
+<script src="viz-explain.js"></script>
+    <script src="viz-detect.js"></script>
+<script src="viz-render.js"></script>
+<script src="viz.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
