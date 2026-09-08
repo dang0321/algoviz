@@ -186,13 +186,17 @@ const VizRender = (() => {
       case "pairheap":  return "<b>" + b.name + "</b>" + note + tag("우선순위 큐 · (값, 대상)");
       case "segtree":   return "<b>" + b.name + "</b>" + note + tag(b.op + " 트리");
       case "intervals": return "<b>" + b.name + "</b>" + note + tag("구간 " + b.rows + "개");
-      case "forest":    return "<b>" + b.name + "</b>" + note + tag("부모 포인터");
+      // 같은 화살표 그림이지만 뜻이 다르다. 유니온 파인드는 "부모"고,
+      // KMP 실패함수·LCA 부모 배열은 "여기로 돌아간다"는 표시다.
+      case "forest":    return "<b>" + b.name + "</b>" + note +
+                               tag(b.rooted ? "가리키는 곳" : "부모 포인터");
       case "objects":   return "<b>" + b.name + "</b>" + note;
       case "flags":     return "<b>" + b.name + "</b>" + note + tag("참/거짓 " + b.len + "칸");
       case "counts":    return "<b>" + b.name + "</b>" + note + tag("세는 딕셔너리");
       case "scatter":   return "<b>" + b.name + "</b>" + note + tag("좌표 " + b.rows + "개");
       case "records":   return "<b>" + b.name + "</b>" + note +
                                tag(b.rows + "줄 · " + b.cols + "칸짜리 묶음");
+      case "sequence":  return "<b>" + b.name + "</b>" + note + tag("나온 순서");
       case "memogrid":  return "<b>" + b.name + "</b>" + note +
                                tag("메모 표 " + b.rows + "x" + b.cols + " · 키 (i, j)");
       case "setblock":  return "<b>" + b.name + "</b>" + note + tag("집합");
@@ -322,6 +326,14 @@ const VizRender = (() => {
         nodes.records[b.name] = { block, table, cells, spec: b };
         return;
       }
+      case "sequence": {
+        // 값이 이름표라 높이에 뜻이 없다. 순서대로 늘어놓고 방금 들어온 걸 짚는다.
+        const head = el("div", "cont-head", block);
+        head.textContent = "왼쪽부터 나온 차례";
+        const row = el("div", "cont-row", block);
+        nodes.sequences[b.name] = { block, row, len: -1, cells: [] };
+        return;
+      }
       case "setblock": {
         const row = el("div", "set-row", block);
         nodes.sets[b.name] = { block, row, seen: new Set() };
@@ -407,7 +419,7 @@ const VizRender = (() => {
     if (root !== stageEl) watchScroll(stageEl);
     root = stageEl;
     root.innerHTML = "";
-    nodes = { callTree: null, scatters: {}, records: {}, arrays: {}, grids: {}, ranges: {}, graphs: {}, chars: {}, forests: {}, heaps: {}, objects: null, containers: {}, intervals: {}, trie: null,
+    nodes = { callTree: null, scatters: {}, records: {}, sequences: {}, arrays: {}, grids: {}, ranges: {}, graphs: {}, chars: {}, forests: {}, heaps: {}, objects: null, containers: {}, intervals: {}, trie: null,
       flags: {}, counts: {}, memoGrids: {}, pairHeaps: {}, sets: {}, charGrids: {}, segtrees: {}, series: [], stack: null };
 
     // blocks 는 "많이 변한 순"이라, 화면 맨 위에 그 코드의 주인공이 온다.
@@ -1218,8 +1230,30 @@ const VizRender = (() => {
       }
   }
 
+  function refreshSequences(V, P, frame, prev, idx) {
+        for (const sq of (plan.sequences || [])) {
+        const n = nodes.sequences[sq.name];
+        const cur = V[sq.name];
+        if (!Array.isArray(cur)) { gone(n.block); continue; }
+        here(n.block);
+        // 길이가 그대로면 칸을 다시 만들지 않는다. 만들면 트랜지션이 죽는다.
+        if (cur.length !== n.len) {
+          n.row.innerHTML = "";
+          n.cells = [];
+          for (let i = 0; i < cur.length; i++) n.cells.push(el("div", "cont-cell", n.row));
+          n.len = cur.length;
+          if (!cur.length) el("div", "cont-empty", n.row).textContent = "아직 없음";
+        }
+        const before = Array.isArray(P[sq.name]) ? P[sq.name].length : -1;
+        for (let i = 0; i < cur.length; i++) {
+          n.cells[i].textContent = fmt(cur[i]);
+          n.cells[i].classList.toggle("head", before >= 0 && i >= before);
+        }
+      }
+  }
+
   function refreshSets(V, P, frame, prev, idx) {
-      for (const st of plan.sets) {
+    for (const st of plan.sets) {
         const n = nodes.sets[st.name];
         const cur = V[st.name];
         if (!cur || !Array.isArray(cur.__set__)) { gone(n.block); continue; }
@@ -1676,6 +1710,7 @@ const VizRender = (() => {
     refreshCallTree,
     refreshScatters,
     refreshRecords,
+    refreshSequences,
     refreshSets,
     refreshIntervals,
     refreshContainers,

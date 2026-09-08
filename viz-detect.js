@@ -501,6 +501,13 @@ const VizDetect = (() => {
       for (const m of source.matchAll(/^\s*(\w+)\s*=\s*.*input\s*\(/gm)) fromInput.add(m[1]);
     }
     const roles = findRoles(timeline, source, fromInput);
+    // 값이 전부 그래프 노드인 "쌓는 곳"은 크기가 아니라 순서다. 막대를 뗀다.
+    const sequences = labelSequences(timeline, arrays, graphs, roles);
+    for (const a of sequences) {
+      a.kind = "sequence";
+      const i = arrays.indexOf(a);
+      if (i >= 0) arrays.splice(i, 1);
+    }
     for (const b of blocks) {
       // 글자 칸에도 역할을 붙인다. 예전엔 막대·표에만 붙여서
       // 문자열 블록이 죄다 이름만 달고 있었다.
@@ -549,7 +556,7 @@ const VizDetect = (() => {
     blocks.sort((a, b) => a.rank - b.rank || b.changes - a.changes);
 
     return { arrays, grids, chars, forests, heaps, objects, containers, intervals, tries,
-             flags, counts, memoGrids, pairHeaps, scatters, records, sets, charGrids, segtrees, bitmasks, ranges, source,
+             flags, counts, memoGrids, pairHeaps, scatters, records, sequences, sets, charGrids, segtrees, bitmasks, ranges, source,
              sections: findSections(source),
              branches: branchOutcomes(timeline, source),
              pointerOf, spanOf, graphs, series, blocks, pointers, scalars,
@@ -905,6 +912,38 @@ const VizDetect = (() => {
         if (cursors.length < 3) cursors.push(k2);
       }
       out.push({ kind: "records", name: k, rows, cols, cursors, changes: seen[k].changes });
+    }
+    return out;
+  }
+
+  /* ---------- 순서 목록 ----------
+   * `order = [1, 2, 4, 3]` 은 **방문 순서**지 크기가 아니다. 그런데 막대로 그리면
+   * 4번 노드가 3번보다 "크게" 보인다 — 코드에 없는 뜻이 생긴다.
+   *
+   * 막대 높이는 값이 **양**일 때만 뜻이 있다. 값이 이름표(노드 번호)면
+   * 순서대로 늘어놓은 칩이 맞는 그림이다.
+   *
+   * 이름표인지 아닌지는 근거로 가른다: **값이 전부 이 코드의 그래프 노드**여야 한다.
+   * "작은 정수라 어떤 배열의 인덱스 범위에 든다" 는 근거가 못 된다 —
+   * 실측해 보니 소인수분해의 f, 중앙값의 out, 동전 개수까지 죄다 걸렸다. */
+  function labelSequences(timeline, arrays, graphs, roles) {
+    const nodes = new Set();
+    for (const g of graphs) for (const n of g.nodes) nodes.add(n);
+    if (nodes.size < 3) return [];
+    const out = [];
+    for (const a of arrays) {
+      if (roles[a.name] !== "쌓는 곳") continue;
+      let seenAny = false, ok = true;
+      for (const f of timeline) {
+        const v = f.vars[a.name];
+        if (!Array.isArray(v) || !v.length) continue;
+        seenAny = true;
+        for (const x of v) {
+          if (!nodes.has(x)) { ok = false; break; }
+        }
+        if (!ok) break;
+      }
+      if (seenAny && ok) out.push(a);
     }
     return out;
   }
@@ -1404,39 +1443,59 @@ const VizDetect = (() => {
   function parentForests(timeline, seen) {
     const out = [];
     for (const [k, s] of Object.entries(seen)) {
-      if (!s.arr || s.maxLen < 3 || s.maxLen > 40 || !s.changes) continue;
+      if (!s.arr || s.maxLen < 3 || s.maxLen > 40) continue;
+      // 방향 벡터(dr = [-1, 0, 1, 0])는 안 변하고, 값이 -1~1 이고, 짧다.
+      // 우연히 "자기보다 앞을 가리킨다"를 만족하지만 포인터가 아니라 상수 표다.
+      // 배열 목록에서 이미 빼고 있는 것과 같은 조건으로 여기서도 뺀다.
+      if (!s.changes && s.maxLen <= 8 && s.gmin >= -1 && s.gmax <= 1) continue;
       let okFrames = 0, sawLink = false, bad = false, sawAllSelf = false;
+      let backward = true, kinds = new Set(), firstSeen = true;
       const lens = new Set();
       for (const f of timeline) {
         const v = f.vars[k];
         if (!isNumList(v)) continue;
         const n = v.length;
         for (let i = 0; i < n; i++) {
-          if (!Number.isInteger(v[i]) || v[i] < 0 || v[i] >= n) { bad = true; break; }
+          // -1 은 "부모 없음"(뿌리)을 뜻하는 흔한 표시라 받아준다
+          if (!Number.isInteger(v[i]) || v[i] < -1 || v[i] >= n) { bad = true; break; }
           if (v[i] !== i) sawLink = true;
+          if (i >= 1 && v[i] >= i) backward = false;
+          if (kinds.size < 12) kinds.add(v[i]);
         }
         if (bad) break;
-        for (let i = 0; i < n && !bad; i++) {          // 순환 검사
-          let cur = i, steps = 0;
-          while (v[cur] !== cur) {
-            cur = v[cur];
-            if (++steps > n) { bad = true; break; }
+        if (v.some((x) => x < 0)) {
+          // -1 이 섞이면 자기를 가리키는 유니온 파인드는 아니다. 뒤를 가리키는
+          // 포인터 배열인지만 본다 (순환은 v[i] < i 라 있을 수 없다).
+        } else {
+          for (let i = 0; i < n && !bad; i++) {          // 순환 검사
+            let cur = i, steps = 0;
+            while (v[cur] !== cur) {
+              cur = v[cur];
+              if (++steps > n) { bad = true; break; }
+            }
           }
+          if (bad) break;
+          // **처음에** 모든 칸이 자기를 가리켜야 한다. 아무 때나 보면
+          // 타잔의 idx(발견 시각)가 끝에 [0,1,2,...] 가 되면서 부모 배열로 잡힌다.
+          // 길이 3 이상일 때만 뜻이 있다 — digits 는 [0] 한 칸으로 시작해 거저 통과했다.
+          if (firstSeen && n >= 3 && v.every((x, i) => x === i)) sawAllSelf = true;
         }
-        if (bad) break;
-        // 길이 3 이상일 때만 "다 자기를 가리킨다"가 뜻이 있다.
-        // 큰 수 덧셈의 digits 는 [0] 한 칸으로 시작해서 그 조건을 거저 통과했다.
-        if (n >= 3 && v.every((x, i) => x === i)) sawAllSelf = true;   // parent = list(range(n))
         lens.add(n);
+        firstSeen = false;
         okFrames++;
       }
-      // 값이 전부 유효한 인덱스라는 것만으로는 부족하다. 위상정렬의 indeg 나
-      // KMP 의 실패함수도 우연히 그 조건을 만족한다. 유니온 파인드의 진짜 서명은
-      // **처음에 모든 칸이 자기를 가리킨다**는 것이다.
-      // 부모 배열은 크기가 정해져 있다. 자라나는 리스트는 부모 배열이 아니다
-      // (digits 처럼 append 로 커지는 것들이 여기서 걸린다).
-      if (bad || !sawLink || !sawAllSelf || okFrames < 2 || lens.size > 1) continue;
-      out.push({ kind: "forest", name: k, len: s.maxLen, changes: s.changes });
+      if (bad || !sawLink || okFrames < 2 || lens.size > 1) continue;
+
+      // 화살표로 그릴 만한 서명은 둘이다.
+      //   1) 처음에 모든 칸이 자기를 가리킨다  -> 유니온 파인드
+      //   2) 모든 칸이 자기보다 **앞**을 가리킨다 -> KMP 실패함수, LCA 부모 배열
+      // 2번에는 "서로 다른 값 3개 이상"이 반드시 필요하다. 이게 없으면
+      // 위상정렬의 indeg([0,0,0,...])나 회문 DP 의 cut 처럼 값이 한두 가지뿐인
+      // 배열이 죄다 "뒤를 가리킨다"로 통과한다 (실측으로 걸렀다).
+      const pointsBack = backward && kinds.size >= 3;
+      if (!sawAllSelf && !pointsBack) continue;
+      out.push({ kind: "forest", name: k, len: s.maxLen, changes: s.changes,
+                 rooted: !sawAllSelf });
     }
     return out;
   }
