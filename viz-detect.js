@@ -646,6 +646,9 @@ const VizDetect = (() => {
       for (const f of timeline) {
         const v = f.vars[k];
         if (v === undefined) continue;
+        // board = [] 로 시작해 append 로 한 줄씩 쌓는 꼴이 흔하다. 빈 칸일 때를
+        // "격자가 아니다"로 보면 그 지도는 화면에 아예 안 나온다 (실제로 그랬다).
+        if (Array.isArray(v) && v.length === 0) continue;
         const good = Array.isArray(v) && v.length >= 1 &&
           v.every((r) => Array.isArray(r) && r.length &&
                          r.length === v[0].length &&
