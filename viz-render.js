@@ -430,6 +430,12 @@ const VizRender = (() => {
         if (b.len > 40) bars.classList.add("dense");                  // 라벨 떼고 얇게
         const idxRow = el("div", "ptrs", block);
         const ptrRow = el("div", "ptrs", block);
+        // 그림 읽는 법을 한 줄로 적어 둔다. 막대 높이가 값이라는 걸 모르면
+        // "4번이 3번보다 크다"를 순서로 오해한다 (Stepwise 의 안내 줄을 옮겨왔다).
+        const note = el("p", "data-note", block);
+        note.textContent = b.binary
+          ? "칠해진 칸 = 참 · 아래 숫자 = 인덱스"
+          : "막대 높이 = 값 · 아래 숫자 = 인덱스";
         nodes.arrays[b.name] = { block, bars, idxRow, ptrRow, cols: [], len: -1, spec: b };
         return;
       }
@@ -472,7 +478,14 @@ const VizRender = (() => {
     el("div", "viz-title", sblock).textContent = "변수";
     nodes.scalarBox = el("div", "scalars", sblock);
     nodes.scalarBlock = sblock;
+    // Stepwise 의 "다음 실행 · 4번째 줄" 처럼 줄 번호를 앞머리로 세운다.
+    // innerHTML 로 붙이지 않는다 — 설명 안에는 사용자 코드의 값이 들어온다.
     nodes.what = whatBar;
+    nodes.whatLead = el("span", "what-lead", whatBar);
+    // 가운뎃점은 **진짜 글자**로 넣는다. CSS 가짜 요소로 넣으면 textContent 에
+    // 안 잡혀서, 설명을 읽어 재는 검사들이 조용히 헛돈다 (실측으로 걸렀다).
+    nodes.whatDot = el("span", "what-dot", whatBar);
+    nodes.whatBody = el("span", "what-body", whatBar);
     nodes.blockOf = blockOf;
     nodes.step = stepBar;
   }
@@ -924,14 +937,18 @@ const VizRender = (() => {
           // 효과는 그 줄을 실행한 **다음** 프레임에 보인다. 원인 줄을 앞에 붙여야
           // "어느 줄이 이걸 했는지" 가 연결된다.
           const cause = prev ? prev.line : frame.line;
-          nodes.what.textContent = cause + "줄  ·  " + d.text;
+          nodes.whatLead.textContent = cause + "줄";
+          nodes.whatDot.textContent = "  ·  ";
+          nodes.whatBody.textContent = d.text;
         } else {
           // 바뀐 게 없으면 지금 무슨 줄을 보고 있는지라도 알려준다 (조건 검사 등).
           // 조건 줄이면 **결과까지** 붙인다 — "왜 이 줄로 갔나"의 답이 그거다.
           const cur = (srcLine(frame.line) || "").trim();
           const yn = plan.branches ? plan.branches[idx] : null;
-          nodes.what.textContent = cur
-            ? frame.line + "줄  ·  " + fillLine(cur, V) + (yn ? "   →  " + yn : "") : "";
+          nodes.whatLead.textContent = cur ? frame.line + "줄" : "";
+          nodes.whatDot.textContent = cur ? "  ·  " : "";
+          nodes.whatBody.textContent = cur
+            ? fillLine(cur, V) + (yn ? "   →  " + yn : "") : "";
         }
         nodes.what.classList.toggle("idle", !d.text);
         // 바뀐 변수의 블록을 짚어준다. 어느 그림을 봐야 하는지가 바로 보이게.

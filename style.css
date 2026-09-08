@@ -1,35 +1,41 @@
 :root {
-  /* 바탕. 아래로 갈수록 살짝 밝아지고, 위쪽에 메인 색이 옅게 번진다.
-     이게 있어야 유리판이 "뒤가 비치는" 느낌이 난다 — 평평한 색 위에
-     반투명을 얹으면 그냥 다른 불투명 색과 구별이 안 된다. */
-  --bg: #0a0d13;
-  --bg-2: #0e1420;
+  /* Stepwise(같은 사람이 만든 다른 도구)의 색을 그대로 가져왔다.
+     초록빛이 도는 먹색 바탕 + 민트 한 색. 실제 화면에서 뽑은 값이다. */
+  --bg: #101417;
+  --bg-2: #131A1D;
 
-  /* 유리판. 뒤가 비치되 글자는 또렷하게 남을 만큼만 투명하다. */
-  --panel: rgba(20, 26, 38, .72);
-  --panel-2: rgba(32, 41, 57, .55);
-  --line: rgba(140, 172, 214, .14);
-  --line-2: rgba(140, 172, 214, .07);
+  /* 판. 유리처럼 비치게 두지 않고 또렷한 카드로 세운다.
+     테두리를 0.8px 로 얇게 하고 큰 그림자를 옅게 깔면 "떠 있되 조용한" 느낌이 난다. */
+  --panel: #171E22;
+  --panel-2: #1D2A24;
+  --line: #2E3A37;
+  --line-2: #232E2B;
 
-  --text: #e8ecf3;
-  --dim: #93a0b5;
+  --text: #D7E0DF;
+  --text-hi: #EDF3F1;
+  --dim: #98ADA2;
+  --dim-2: #839A8B;
+  --faint: #5C6B62;                             /* 인덱스 번호처럼 아주 조용한 글자 */
 
-  /* 메인 색 하나. 테두리·채움·빛번짐 모두 여기서 뽑아 쓴다. */
-  --accent: #4fc9f0;
-  --accent-ink: #04202c;                       /* 메인 색 위에 얹는 글자 */
-  --accent-soft: rgba(79, 201, 240, .16);
-  --accent-line: rgba(79, 201, 240, .40);
-  --accent-glow: rgba(79, 201, 240, .22);
+  /* 메인 색 하나. 민트. */
+  --accent: #9CE9B9;
+  --accent-ink: #173B27;                        /* 민트 위에 얹는 글자 */
+  --accent-soft: rgba(161, 233, 185, .07);
+  --accent-line: rgba(87, 123, 94, .55);
+  --accent-glow: rgba(156, 233, 185, .16);
 
-  /* 뜻이 있는 색은 남긴다. 전부 한 색으로 칠하면 "지금 여기"(커서)와
-     "방금 들어옴"(새 값)이 배경과 구별이 안 돼 그림이 뜻을 잃는다.
-     대신 메인 색과 밝기·채도를 맞춰 따로 놀지 않게 했다. */
-  --warn: #ffab5e;
-  --accent-2: #6ee7a8;
-  --danger: #ff6f68;
+  /* 뜻이 있는 색. 민트와 부딪히지 않게 따뜻한 쪽으로 잡았다.
+     이걸 없애면 "지금 여기"(커서)와 "방금 들어옴"(새 값)이 안 보인다. */
+  --warn: #FFC07A;
+  --accent-2: #7FD8A2;
+  --danger: #FF7A72;
 
-  --bar: rgba(79, 201, 240, .34);
+  --bar-top: #B9F2C9;
+  --bar-bot: #6DAD85;
+  --bar: var(--bar-bot);
   --bar-hot: var(--accent);
+
+  --card-shadow: 0 10px 40px rgba(0, 0, 0, .30);
   --lh: 20px;
 }
 
@@ -43,38 +49,184 @@ html, body {
 }
 body {
   background:
-    radial-gradient(1100px 620px at 12% -12%, rgba(79, 201, 240, .10), transparent 62%),
-    radial-gradient(900px 520px at 108% 4%, rgba(79, 201, 240, .055), transparent 58%),
-    linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 70%);
+    radial-gradient(1200px 660px at 14% -14%, rgba(156, 233, 185, .055), transparent 62%),
+    linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 60%);
   background-attachment: fixed;
 }
 
 header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
-  padding: 10px 16px;
+  padding: 9px 16px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
-header h1 { margin: 0; font-size: 16px; letter-spacing: .5px; }
-header h1 { color: var(--accent); }
-.tag { color: var(--dim); font-size: 12px; }
-.status { margin-left: auto; font-size: 12px; color: var(--dim); }
+/* ---- 머리띠 (Stepwise 구조를 옮겨왔다) ----
+ * 왼쪽부터: 기호 -> 이름 -> 라벨 칩 -> 한 줄 설명 -> 어디서 도는지 -> 상태. */
+.brand { display: flex; align-items: center; gap: 8px; }
+.brand-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.brand-icon svg { width: 18px; height: 18px; }
+.brand-word {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -.5px;
+  color: var(--text-hi);
+}
+.brand-word b { color: var(--accent); font-weight: 650; }
+.brand-chip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  color: var(--dim);
+  border: 0.8px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.header-note { color: var(--dim); font-size: 12px; }
+.local-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--dim-2);
+}
+.local-badge i {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); display: inline-block;
+}
+.status { font-size: 12px; color: var(--dim); }
+
+/* ---- 인트로 한 줄 ----
+ * Stepwise 는 큰 표제를 얹지만 여기는 한 화면 안에서 스크럽하며 보는 앱이라
+ * 세로를 170px 이나 내줄 수 없다. 눈썹 글자와 단축키만 한 줄로 남긴다. */
+.intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  color: var(--dim-2);
+}
+.intro-keys {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--dim-2);
+}
+.intro-keys kbd {
+  font-family: "D2Coding", "Consolas", ui-monospace, monospace;
+  font-size: 10px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 0.8px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
+.intro-keys span { margin-right: 6px; }
+
+/* ---- 판 머리 ---- */
+.panel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+.panel-title svg { width: 16px; height: 16px; color: var(--dim); }
+.file-tag, .view-tag {
+  font-family: "D2Coding", "Consolas", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--dim);
+  background: var(--panel-2);
+  border: 0.8px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 7px;
+}
+.file-tag { margin-left: 2px; }
+.timeline-label { font-size: 11px; color: var(--dim-2); white-space: nowrap; }
+
+/* ---- 작업 공간 줄 ----
+ * Stepwise 처럼 "무엇을 열어 놓았나 + 실행"을 판 바깥의 한 줄로 뺐다.
+ * 판 머리에 다섯 개를 몰아넣었더니 좁은 화면에서 두 줄로 접혔다 (66px). */
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ws-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--dim);
+  white-space: nowrap;
+}
+.ws-title .status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); display: inline-block;
+}
+.ws-title .slash { color: var(--line); }
+.workspace-toolbar select {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 0.8px solid var(--line);
+  border-radius: 7px;
+  padding: 4px 8px;
+  font-size: 12px;
+  max-width: 260px;
+}
+.workspace-toolbar button#run {
+  margin-left: auto;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter .16s ease;
+}
+.workspace-toolbar button#run:hover:not(:disabled) { filter: brightness(1.06); }
+.workspace-toolbar button#run:disabled {
+  background: var(--panel-2); color: var(--dim); cursor: default;
+}
 .status.ready { color: var(--accent-2); }
 .status.err { color: var(--danger); }
 
+/* 예전엔 height: calc(100vh - 43px) 로 머리 높이를 숫자로 박아 뒀다.
+   머리띠가 한 줄 늘어나는 순간 아래가 그만큼 잘린다. 플렉스로 바꾼다. */
+body { display: flex; flex-direction: column; }
 main {
   display: grid;
   grid-template-columns: minmax(320px, 42%) 1fr;
-  height: calc(100vh - 43px);
+  flex: 1;
+  min-height: 0;
 }
 
 .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .pane-code { border-right: 1px solid var(--line); }
-.pane-viz { background: rgba(255, 255, 255, .012); }
+.pane-viz { background: rgba(156, 233, 185, .012); }
 
 .pane-head {
   display: flex;
@@ -85,20 +237,17 @@ main {
   color: var(--dim);
   border-bottom: 1px solid var(--line);
   background: var(--panel);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 .pane-head button {
   margin-left: auto;
-  background: linear-gradient(180deg, var(--accent), #33b4dd);
+  background: var(--accent);
   color: var(--accent-ink);
   border: 0;
-  border-radius: 7px;
-  padding: 4px 14px;
+  border-radius: 6px;
+  padding: 5px 14px;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 2px 12px var(--accent-glow);
-  transition: box-shadow .16s ease, filter .16s ease;
+  transition: filter .16s ease, box-shadow .16s ease;
 }
 .pane-head button:hover:not(:disabled) { filter: brightness(1.06); box-shadow: 0 3px 16px var(--accent-glow); }
 .pane-head button:disabled {
@@ -121,7 +270,7 @@ main {
 .gutter {
   padding: 10px 8px 10px 12px;
   text-align: right;
-  color: #4d5668;
+  color: var(--faint);
   user-select: none;
   overflow: hidden;
   line-height: var(--lh);
@@ -135,7 +284,7 @@ main {
   position: absolute;
   left: 0; right: 0;
   height: var(--lh);
-  background: rgba(94, 200, 248, .13);
+  background: rgba(156, 233, 185, .10);
   border-left: 2px solid var(--accent);
   pointer-events: none;
   display: none;
@@ -164,8 +313,6 @@ main {
   padding: 8px 12px;
   border-top: 1px solid var(--line);
   background: var(--panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
   font-size: 12px;
   white-space: pre-wrap;
@@ -180,10 +327,11 @@ main {
 
 .viz-block {
   margin-bottom: 12px;
-  padding: 10px 12px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: 10px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, .030), rgba(255, 255, 255, .012));
+  padding: 12px 14px 14px;
+  border: 0.8px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel);
+  box-shadow: var(--card-shadow);
   transition: border-color .18s ease, box-shadow .18s ease;
 }
 .viz-title {
@@ -197,16 +345,18 @@ main {
 /* 막대 */
 .bars { display: flex; align-items: flex-end; gap: 3px; height: 190px; }
 .bar-col { flex: 1 1 0; min-width: 8px; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; }
+/* 가만히 있는 막대는 가라앉은 민트, 방금 바뀐 막대는 밝은 민트.
+   한 색 안에서 밝기로만 갈라 놓으면 화면이 조용하면서도 변화가 또렷하다.
+   주황은 "지금 보고 있는 자리"(커서·포인터) 전용으로 남겨 둔다. */
 .bar {
-  background: linear-gradient(180deg, rgba(79, 201, 240, .46), rgba(79, 201, 240, .22));
-  border-radius: 4px 4px 2px 2px;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .10);
-  transition: height .16s ease, background-color .16s ease, box-shadow .16s ease;
+  background: linear-gradient(180deg, #5F9A75, #47755A);
+  border-radius: 5px 5px 0 0;
+  transition: height .16s ease, background .16s ease, box-shadow .16s ease;
   position: relative;
 }
 .bar.changed {
-  background: linear-gradient(180deg, var(--accent), #34b6df);
-  box-shadow: 0 0 14px var(--accent-glow), inset 0 1px 0 rgba(255, 255, 255, .22);
+  background: linear-gradient(180deg, var(--bar-top), var(--bar-bot));
+  box-shadow: 0 0 16px var(--accent-glow);
 }
 .bar-val {
   font-size: 10px;
@@ -215,7 +365,7 @@ main {
   font-variant-numeric: tabular-nums;
   height: 14px;
 }
-.bar-idx { font-size: 9px; text-align: center; color: #4d5668; height: 12px; }
+.bar-idx { font-size: 9px; text-align: center; color: var(--faint); height: 12px; }
 
 /* 포인터 */
 .ptrs { display: flex; gap: 3px; margin-top: 2px; }
@@ -270,8 +420,6 @@ main {
   padding: 8px 12px;
   border-top: 1px solid var(--line);
   background: var(--panel);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 .player button {
   background: var(--panel-2);
@@ -284,27 +432,26 @@ main {
 }
 .player button:hover { border-color: var(--accent-line); color: var(--text); }
 .player button.primary {
-  background: linear-gradient(180deg, var(--accent), #33b4dd);
+  background: var(--accent);
   color: var(--accent-ink);
   border-color: transparent;
   font-weight: 700;
   min-width: 38px;
-  box-shadow: 0 2px 12px var(--accent-glow);
 }
 #scrub { flex: 1 1 160px; min-width: 120px; }
 
 /* ---- 스크롤 막대 ----
  * 기본 스크롤바는 밝고 두꺼워서 어두운 화면에서 혼자 튄다. */
-* { scrollbar-width: thin; scrollbar-color: rgba(140, 172, 214, .22) transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(150, 190, 165, .22) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(140, 172, 214, .20);
+  background: rgba(150, 190, 165, .20);
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 6px;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(140, 172, 214, .36); background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(150, 190, 165, .36); background-clip: padding-box; }
 ::-webkit-scrollbar-corner { background: transparent; }
 
 /* ---- 재생 막대 ----
@@ -319,7 +466,7 @@ input[type="range"] {
 input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 3px;
-  background: rgba(140, 172, 214, .18);
+  background: rgba(150, 190, 165, .18);
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -332,7 +479,7 @@ input[type="range"]::-webkit-slider-thumb {
   box-shadow: 0 0 0 4px var(--accent-soft), 0 1px 6px var(--accent-glow);
 }
 input[type="range"]::-moz-range-track {
-  height: 4px; border-radius: 3px; background: rgba(140, 172, 214, .18);
+  height: 4px; border-radius: 3px; background: rgba(150, 190, 165, .18);
 }
 input[type="range"]::-moz-range-thumb {
   width: 14px; height: 14px; border: 0; border-radius: 50%;
@@ -359,7 +506,7 @@ input[type="range"]::-moz-range-thumb {
 .player[hidden] { display: none; }
 
 .bars.small { height: 70px; }
-.viz-title span { color: #4d5668; }
+.viz-title span { color: var(--faint); }
 
 .pane-head select {
   background: var(--panel-2);
@@ -374,8 +521,6 @@ input[type="range"]::-moz-range-thumb {
 .io {
   border-top: 1px solid var(--line);
   background: var(--panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   display: flex;
   flex-direction: column;
   /* 높이를 여기서 들고, 안의 textarea 가 남은 자리를 채운다. 이렇게 해야
@@ -390,7 +535,7 @@ input[type="range"]::-moz-range-thumb {
   font-size: 11px;
   color: var(--dim);
 }
-.io-head .hint { color: #4d5668; margin-left: 6px; }
+.io-head .hint { color: var(--faint); margin-left: 6px; }
 /* 편집기와 입력 칸 사이의 손잡이. 세로로 끌어 높이를 바꾼다.
  * textarea 의 기본 손잡이(오른쪽 아래 모서리)는 너무 작아 아무도 못 찾는다. */
 .io-grip {
@@ -409,7 +554,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 3px;
   /* 테두리색(--line)으로 두면 배경에 묻혀 끌 수 있는 줄인지 모른다.
      한 단계 밝게 둬서 "여기를 잡으라"는 게 보이게 한다. */
-  background: rgba(140, 172, 214, .28);
+  background: rgba(150, 190, 165, .26);
   transition: background .12s ease;
 }
 .io-grip:hover::before, .io-grip.on::before { background: var(--bar-hot); }
@@ -433,7 +578,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   white-space: pre;
   overflow: auto;
 }
-#stdin::placeholder { color: #3c4454; }
+#stdin::placeholder { color: #4A574F; }
 
 /* ---- 수직선 + 구간 (이분탐색) ---- */
 .nline {
@@ -452,7 +597,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   position: absolute;
   top: 10px;
   font-size: 10px;
-  color: #4d5668;
+  color: var(--faint);
   font-variant-numeric: tabular-nums;
 }
 .nline-end.left { left: 0; }
@@ -506,10 +651,10 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   stroke-width: 1.5;
   transition: stroke .16s ease, stroke-width .16s ease;
 }
-.gedge.on { stroke: #46617a; stroke-width: 2.5; }
+.gedge.on { stroke: #4E7A62; stroke-width: 2.5; }
 .gnode {
   fill: var(--panel-2);
-  stroke: #3a4356;
+  stroke: #37453D;
   stroke-width: 2;
   transition: fill .16s ease, stroke .16s ease;
 }
@@ -555,7 +700,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 
 /* ---- 여기까지 실행 ---- */
 .gutter div { cursor: pointer; }
-.gutter div:hover { color: var(--text); background: #232a37; }
+.gutter div:hover { color: var(--text); background: #202A25; }
 .gutter div.stop {
   color: #1a0f04;
   background: var(--warn);
@@ -638,13 +783,13 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 }
 .cs-row.top {
   border-left-color: var(--warn);
-  background: #23293a;
+  background: #1F2A24;
   color: var(--text);
 }
 .cs-fn { color: var(--accent); font-weight: 700; }
 .cs-args { color: var(--text); }
 .cs-ret { color: var(--accent-2); margin-left: 8px; font-weight: 700; }
-.cs-empty { color: #4d5668; font-size: 11px; padding: 4px 2px; }
+.cs-empty { color: var(--faint); font-size: 11px; padding: 4px 2px; }
 
 /* 눈금을 벗어난 값(INF 센티넬) */
 .bar.over {
@@ -654,7 +799,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 .grid td.over { color: var(--warn); }
 
 .gweight {
-  fill: #7d8798;
+  fill: #7E9186;
   font-size: 10px;
   text-anchor: middle;
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
@@ -663,7 +808,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   stroke-width: 3px;
 }
 
-.cs-line { color: #55607a; margin-left: 8px; font-size: 11px; }
+.cs-line { color: #59695E; margin-left: 8px; font-size: 11px; }
 .cs-row.top .cs-line { color: var(--accent); }
 
 /* ---- 부모 포인터 배열 (유니온 파인드) ---- */
@@ -677,7 +822,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 }
 .fnode {
   fill: var(--panel-2);
-  stroke: #3a4356;
+  stroke: #37453D;
   stroke-width: 2;
   transition: fill .16s ease, stroke .16s ease;
 }
@@ -689,7 +834,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
 }
 .fidx {
-  fill: #4d5668;
+  fill: var(--faint);
   font-size: 10px;
   text-anchor: middle;
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
@@ -697,7 +842,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 
 .bar.swap {
   background: var(--warn);
-  box-shadow: 0 0 0 1px rgba(240,136,62,.6);
+  box-shadow: 0 0 0 1px rgba(255, 192, 122, .55);
 }
 .stdout-live { color: var(--text); white-space: pre-wrap; }
 
@@ -716,7 +861,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 /* ---- 클래스 객체 (연결리스트/트리) ---- */
 .oviz { display: block; width: 100%; max-width: 560px; height: auto; }
 .oedge { stroke: var(--line); stroke-width: 1.5; transition: stroke .16s ease; }
-.oedge.on { stroke: #46617a; stroke-width: 2.5; }
+.oedge.on { stroke: #4E7A62; stroke-width: 2.5; }
 .onode {
   fill: var(--panel-2);
   stroke: var(--bar);
@@ -739,7 +884,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
 }
 .oefield {
-  fill: #6b7689;
+  fill: #6E8175;
   font-size: 9px;
   text-anchor: middle;
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
@@ -749,7 +894,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 }
 
 /* ---- 스택 / 큐 ---- */
-.cont-head { font-size: 11px; color: #4d5668; margin-bottom: 5px; }
+.cont-head { font-size: 11px; color: var(--faint); margin-bottom: 5px; }
 .cont-row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; min-height: 34px; }
 .cont-cell {
   min-width: 34px;
@@ -767,7 +912,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   transition: border-color .16s ease, background-color .16s ease;
 }
 .cont-cell.next { border-color: var(--warn); background: #33281c; }
-.cont-empty { color: #4d5668; font-size: 12px; }
+.cont-empty { color: var(--faint); font-size: 12px; }
 
 /* ---- 통 나누기 (기수·계수 정렬) ----
  * 통마다 세로로 쌓는다. 아래에 통 번호를 달아 "몇 번 통인가"가 바로 보이게. */
@@ -879,8 +1024,8 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   color: var(--text);
 }
 .set-chip.just { border-color: var(--warn); background: #33281c; }
-.set-empty { color: #4d5668; font-size: 12px; }
-.set-size { color: #4d5668; font-size: 11px; margin-left: 6px; }
+.set-empty { color: var(--faint); font-size: 12px; }
+.set-size { color: var(--faint); font-size: 11px; margin-left: 6px; }
 
 /* 0/1 배열: 켜짐/꺼짐만 본다 */
 .bars.binary { height: 40px; }
@@ -905,13 +1050,11 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   z-index: 3;
   margin: -4px -4px 12px;
   padding: 8px 12px;
-  background: rgba(22, 29, 42, .82);
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  border: 1px solid var(--line);
+  background: #1E3028;
+  border: 0.8px solid #324739;
   border-left: 3px solid var(--warn);
-  border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+  border-radius: 7px;
+  box-shadow: var(--card-shadow);
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
   font-size: 13px;
   color: var(--text);
@@ -919,11 +1062,22 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   white-space: nowrap;
   overflow-x: auto;
 }
-.what.idle { color: #4d5668; border-left-color: var(--line); }
+.what-lead { color: var(--accent); font-weight: 700; margin-right: 4px; }
+.what-dot { color: var(--dim-2); }
+.what.idle { color: var(--faint); border-left-color: var(--line); }
+.what.idle .what-lead { color: var(--dim-2); }
+
+/* 그림 읽는 법 한 줄. Stepwise 의 "막대 높이 = 값 · 아래 숫자 = 인덱스". */
+.data-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--dim-2);
+}
 /* 방금 바뀐 변수의 블록을 짚어준다. 카드가 됐으니 안쪽 왼쪽에 띠를 넣는다
    — 바깥 그림자 + 음수 여백은 카드 모서리를 깨뜨린다. */
 .viz-block.touched {
-  box-shadow: inset 3px 0 0 var(--warn), 0 0 0 1px rgba(255, 171, 94, .18);
+  border-color: rgba(255, 192, 122, .34);
+  box-shadow: inset 3px 0 0 var(--warn), var(--card-shadow);
 }
 
 /* ---- 지금 어느 단계인가 (코드 주석에서 뽑음) ---- */
@@ -933,13 +1087,11 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   z-index: 4;
   margin: -4px -4px 6px;
   padding: 6px 12px;
-  background: rgba(20, 34, 33, .82);
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  border: 1px solid rgba(110, 231, 168, .22);
+  background: #1B2622;
+  border: 0.8px solid var(--line);
   border-left: 3px solid var(--accent-2);
-  border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, .35);
+  border-radius: 7px;
+  box-shadow: var(--card-shadow);
   font-size: 12px;
   color: var(--accent-2);
   font-weight: 700;
@@ -967,7 +1119,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
    막대는 그대로 두고 뒤에 깔린 바닥만 밝힌다. 너무 옅게 하면 있으나 마나라서
    위아래 테두리로 구간의 시작과 끝을 분명히 끊어 준다. */
 .bar-col.in-span, .cell.in-span {
-  background: #21344a;
+  background: #20342A;
   box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
   border-radius: 2px;
 }
@@ -975,10 +1127,10 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 /* 호출 트리. 아직 안 불린 호출은 흐리게, 지금 열려 있는 호출은 테두리를 밝게,
    끝난 호출은 아래에 반환값을 적는다. 세 상태가 구별돼야 "지금 어디" 가 읽힌다. */
 .calltree { max-width: 100%; }
-.cedge { stroke: #33404f; stroke-width: 1.5; }
-.cedge.todo { stroke: #232a37; }
+.cedge { stroke: #33453B; stroke-width: 1.5; }
+.cedge.todo { stroke: #202A25; }
 .cedge.live { stroke: var(--warn); stroke-width: 2.5; }
-.cbox { fill: var(--panel-2); stroke: #3a4757; stroke-width: 1.5; }
+.cbox { fill: var(--panel-2); stroke: #3A4C41; stroke-width: 1.5; }
 .clabel {
   fill: var(--text); font-family: inherit; font-size: 11px; font-weight: 600;
   text-anchor: middle; dominant-baseline: middle;
@@ -987,8 +1139,8 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   fill: var(--accent-2); font-family: inherit; font-size: 9px;
   text-anchor: middle; dominant-baseline: middle;
 }
-.cnode.todo .cbox { fill: #171c26; stroke: #262f3d; }
-.cnode.todo .clabel { fill: #46505f; }
+.cnode.todo .cbox { fill: #151C19; stroke: #26332C; }
+.cnode.todo .clabel { fill: #4B5A50; }
 .cnode.live .cbox { fill: #33281c; stroke: var(--warn); stroke-width: 2.5; }
 .cnode.done .cbox { fill: #1c2a26; stroke: #2f4a40; }
 
@@ -997,12 +1149,12 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 
 /* 커서가 지나온 자취(역추적 경로)와 경유지 축(플로이드의 k).
    지금 칸(cursor)보다 약하게 — 셋이 같은 세기면 어디가 지금인지 안 보인다. */
-.grid td.trail { box-shadow: inset 0 0 0 1px #3f6d8c; }
+.grid td.trail { box-shadow: inset 0 0 0 1px #4E8A6B; }
 .grid td.via { background-image: linear-gradient(rgba(255,176,70,.13), rgba(255,176,70,.13)); }
 
 /* 좌표 평면. 점이 주인공이라 축은 눈에 안 띄게, 눈금은 양 끝만. */
 .scatter { max-width: 520px; }
-.axis { stroke: #33404f; stroke-width: 1; }
+.axis { stroke: #33453B; stroke-width: 1; }
 .sxlab, .sylab {
   fill: var(--dim); font-family: inherit; font-size: 10px;
   dominant-baseline: middle;
@@ -1026,7 +1178,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   padding: 3px 9px; text-align: left; min-width: 0; height: auto;
   font-variant-numeric: tabular-nums;
 }
-.grid.records tr.changed td { background: #1d3d52; }
+.grid.records tr.changed td { background: rgba(156, 233, 185, .09); }
 .grid.records tr.cursor td { outline: 2px solid var(--warn); outline-offset: -2px; }
 
 /* 블록 제목에 붙은 사용자 주석. 내가 붙인 꼬리표(모양·역할)와 구별되게
@@ -1064,12 +1216,15 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 
 /* 그래프 노드 색칠 (이분 그래프·컬러링의 color[v]).
    방문 표시(visited)와 겹치지 않게 채우기 색만 쓰고 테두리는 안 건드린다. */
-.gnode.col0 { fill: #1f3a5c; }
-.gnode.col1 { fill: #5c2f1f; }
-.gnode.col2 { fill: #1f5c3a; }
-.gnode.col3 { fill: #4a1f5c; }
-.gnode.col4 { fill: #5c561f; }
-.gnode.col5 { fill: #1f5c5c; }
+/* 그래프 색칠(이분 그래프·컬러링)의 색은 **서로 구별되는 것**이 목적이다.
+   화면 색을 한 색으로 묶는다고 여기까지 초록으로 칠하면 "몇 번 색인가"를
+   못 읽는다. 여섯 색이 서로 안 겹치게, 다만 다 같은 어둡기로 맞춰 둔다. */
+.gnode.col0 { fill: #1F5C3A; }
+.gnode.col1 { fill: #5C2F1F; }
+.gnode.col2 { fill: #1F4A5C; }
+.gnode.col3 { fill: #3D2450; }
+.gnode.col4 { fill: #5C561F; }
+.gnode.col5 { fill: #1F5C5C; }
 
 /* 지금 존재하지 않는 값 — 함수 밖으로 나온 지역변수 같은 것.
    제목만 남기고 접는다. 흐리게만 하면 빈 자리가 그대로 화면을 먹는다.
@@ -1079,7 +1234,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
                          border-color .18s ease, box-shadow .18s ease; }
 .viz-block.absent {
   opacity: 0.4;
-  max-height: 42px;                /* 카드 안쪽 여백(10+12)만큼 키운다 */
+  max-height: 46px;                /* 카드 안쪽 여백(12+14)만큼 키운다 */
   overflow: hidden;
   margin-bottom: 8px;
 }
