@@ -1,41 +1,42 @@
 :root {
-  /* Stepwise(같은 사람이 만든 다른 도구)의 색을 그대로 가져왔다.
-     초록빛이 도는 먹색 바탕 + 민트 한 색. 실제 화면에서 뽑은 값이다. */
-  --bg: #101417;
-  --bg-2: #131A1D;
+  /* 하늘색 한 색 + 유리 질감.
+     배치와 짜임새는 Stepwise 에서 가져온 그대로 두고, 색과 재질만 바꿨다.
+     바탕은 푸른기가 도는 먹색, 판은 뒤가 비치는 유리로 세운다. */
+  --bg: #0B0F15;
+  --bg-2: #0F151E;
 
-  /* 판. 유리처럼 비치게 두지 않고 또렷한 카드로 세운다.
-     테두리를 0.8px 로 얇게 하고 큰 그림자를 옅게 깔면 "떠 있되 조용한" 느낌이 난다. */
-  --panel: #171E22;
-  --panel-2: #1D2A24;
-  --line: #2E3A37;
-  --line-2: #232E2B;
+  /* 유리판. 뒤가 비치되 글자는 또렷하게 남을 만큼만 투명하다.
+     테두리 0.8px + 큰 그림자를 옅게 (Stepwise 에서 가져온 카드 골격 유지). */
+  --panel: rgba(21, 29, 40, .66);
+  --panel-2: rgba(30, 42, 58, .52);
+  --line: rgba(150, 195, 230, .16);
+  --line-2: rgba(150, 195, 230, .08);
 
-  --text: #D7E0DF;
-  --text-hi: #EDF3F1;
-  --dim: #98ADA2;
-  --dim-2: #839A8B;
-  --faint: #5C6B62;                             /* 인덱스 번호처럼 아주 조용한 글자 */
+  --text: #DDE6EF;
+  --text-hi: #F0F5FA;
+  --dim: #97A9BA;
+  --dim-2: #7F91A3;
+  --faint: #5A6774;                             /* 인덱스 번호처럼 아주 조용한 글자 */
 
-  /* 메인 색 하나. 민트. */
-  --accent: #9CE9B9;
-  --accent-ink: #173B27;                        /* 민트 위에 얹는 글자 */
-  --accent-soft: rgba(161, 233, 185, .07);
-  --accent-line: rgba(87, 123, 94, .55);
-  --accent-glow: rgba(156, 233, 185, .16);
+  /* 메인 색 하나. 옅은 하늘색. */
+  --accent: #9FD4F2;
+  --accent-ink: #0A2635;                        /* 하늘색 위에 얹는 글자 */
+  --accent-soft: rgba(159, 212, 242, .10);
+  --accent-line: rgba(159, 212, 242, .42);
+  --accent-glow: rgba(159, 212, 242, .20);
 
-  /* 뜻이 있는 색. 민트와 부딪히지 않게 따뜻한 쪽으로 잡았다.
+  /* 뜻이 있는 색. 하늘색과 부딪히지 않게 따뜻한 쪽으로 잡았다.
      이걸 없애면 "지금 여기"(커서)와 "방금 들어옴"(새 값)이 안 보인다. */
   --warn: #FFC07A;
-  --accent-2: #7FD8A2;
-  --danger: #FF7A72;
+  --accent-2: #8FE3D0;
+  --danger: #FF8A82;
 
-  --bar-top: #B9F2C9;
-  --bar-bot: #6DAD85;
+  --bar-top: #C4E7FA;
+  --bar-bot: #6FA9CC;
   --bar: var(--bar-bot);
   --bar-hot: var(--accent);
 
-  --card-shadow: 0 10px 40px rgba(0, 0, 0, .30);
+  --card-shadow: 0 10px 40px rgba(0, 0, 0, .34);
   --lh: 20px;
 }
 
@@ -49,8 +50,9 @@ html, body {
 }
 body {
   background:
-    radial-gradient(1200px 660px at 14% -14%, rgba(156, 233, 185, .055), transparent 62%),
-    linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 60%);
+    radial-gradient(1150px 640px at 12% -14%, rgba(159, 212, 242, .085), transparent 62%),
+    radial-gradient(900px 520px at 106% 6%, rgba(159, 212, 242, .045), transparent 58%),
+    linear-gradient(180deg, var(--bg-2) 0%, var(--bg) 62%);
   background-attachment: fixed;
 }
 
@@ -61,6 +63,8 @@ header {
   padding: 9px 16px;
   border-bottom: 1px solid var(--line);
   background: var(--panel);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
 }
 /* ---- 머리띠 (Stepwise 구조를 옮겨왔다) ----
  * 왼쪽부터: 기호 -> 이름 -> 라벨 칩 -> 한 줄 설명 -> 어디서 도는지 -> 상태. */
@@ -116,6 +120,9 @@ header {
   gap: 12px;
   padding: 6px 16px;
   border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
 }
 .eyebrow {
   font-size: 10px;
@@ -173,6 +180,9 @@ header {
   gap: 8px;
   padding: 7px 16px;
   border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
 }
 .ws-title {
   display: inline-flex;
@@ -226,7 +236,7 @@ main {
 
 .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .pane-code { border-right: 1px solid var(--line); }
-.pane-viz { background: rgba(156, 233, 185, .012); }
+.pane-viz { background: rgba(159, 212, 242, .014); }
 
 .pane-head {
   display: flex;
@@ -237,6 +247,8 @@ main {
   color: var(--dim);
   border-bottom: 1px solid var(--line);
   background: var(--panel);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
 }
 .pane-head button {
   margin-left: auto;
@@ -284,7 +296,7 @@ main {
   position: absolute;
   left: 0; right: 0;
   height: var(--lh);
-  background: rgba(156, 233, 185, .10);
+  background: rgba(159, 212, 242, .11);
   border-left: 2px solid var(--accent);
   pointer-events: none;
   display: none;
@@ -313,6 +325,8 @@ main {
   padding: 8px 12px;
   border-top: 1px solid var(--line);
   background: var(--panel);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
   font-size: 12px;
   white-space: pre-wrap;
@@ -330,8 +344,11 @@ main {
   padding: 12px 14px 14px;
   border: 0.8px solid var(--line);
   border-radius: 11px;
-  background: var(--panel);
-  box-shadow: var(--card-shadow);
+  /* 유리판 위에 얇은 빛을 한 겹. 위가 살짝 밝아야 판이 떠 보인다. */
+  background:
+    linear-gradient(180deg, rgba(190, 225, 250, .045), rgba(190, 225, 250, .012) 42%),
+    var(--panel);
+  box-shadow: var(--card-shadow), inset 0 1px 0 rgba(210, 235, 255, .06);
   transition: border-color .18s ease, box-shadow .18s ease;
 }
 .viz-title {
@@ -349,7 +366,7 @@ main {
    한 색 안에서 밝기로만 갈라 놓으면 화면이 조용하면서도 변화가 또렷하다.
    주황은 "지금 보고 있는 자리"(커서·포인터) 전용으로 남겨 둔다. */
 .bar {
-  background: linear-gradient(180deg, #5F9A75, #47755A);
+  background: linear-gradient(180deg, #5A8CAE, #436B88);
   border-radius: 5px 5px 0 0;
   transition: height .16s ease, background .16s ease, box-shadow .16s ease;
   position: relative;
@@ -420,6 +437,8 @@ main {
   padding: 8px 12px;
   border-top: 1px solid var(--line);
   background: var(--panel);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
 }
 .player button {
   background: var(--panel-2);
@@ -442,16 +461,16 @@ main {
 
 /* ---- 스크롤 막대 ----
  * 기본 스크롤바는 밝고 두꺼워서 어두운 화면에서 혼자 튄다. */
-* { scrollbar-width: thin; scrollbar-color: rgba(150, 190, 165, .22) transparent; }
+* { scrollbar-width: thin; scrollbar-color: rgba(155, 190, 220, .22) transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(150, 190, 165, .20);
+  background: rgba(155, 190, 220, .20);
   border: 2px solid transparent;
   background-clip: padding-box;
   border-radius: 6px;
 }
-::-webkit-scrollbar-thumb:hover { background: rgba(150, 190, 165, .36); background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(155, 190, 220, .36); background-clip: padding-box; }
 ::-webkit-scrollbar-corner { background: transparent; }
 
 /* ---- 재생 막대 ----
@@ -466,7 +485,7 @@ input[type="range"] {
 input[type="range"]::-webkit-slider-runnable-track {
   height: 4px;
   border-radius: 3px;
-  background: rgba(150, 190, 165, .18);
+  background: rgba(155, 190, 220, .18);
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -479,7 +498,7 @@ input[type="range"]::-webkit-slider-thumb {
   box-shadow: 0 0 0 4px var(--accent-soft), 0 1px 6px var(--accent-glow);
 }
 input[type="range"]::-moz-range-track {
-  height: 4px; border-radius: 3px; background: rgba(150, 190, 165, .18);
+  height: 4px; border-radius: 3px; background: rgba(155, 190, 220, .18);
 }
 input[type="range"]::-moz-range-thumb {
   width: 14px; height: 14px; border: 0; border-radius: 50%;
@@ -521,6 +540,8 @@ input[type="range"]::-moz-range-thumb {
 .io {
   border-top: 1px solid var(--line);
   background: var(--panel);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
   display: flex;
   flex-direction: column;
   /* 높이를 여기서 들고, 안의 textarea 가 남은 자리를 채운다. 이렇게 해야
@@ -554,7 +575,7 @@ input[type="range"]::-moz-range-thumb {
   border-radius: 3px;
   /* 테두리색(--line)으로 두면 배경에 묻혀 끌 수 있는 줄인지 모른다.
      한 단계 밝게 둬서 "여기를 잡으라"는 게 보이게 한다. */
-  background: rgba(150, 190, 165, .26);
+  background: rgba(155, 190, 220, .26);
   transition: background .12s ease;
 }
 .io-grip:hover::before, .io-grip.on::before { background: var(--bar-hot); }
@@ -578,7 +599,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   white-space: pre;
   overflow: auto;
 }
-#stdin::placeholder { color: #4A574F; }
+#stdin::placeholder { color: #48545F; }
 
 /* ---- 수직선 + 구간 (이분탐색) ---- */
 .nline {
@@ -651,14 +672,14 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   stroke-width: 1.5;
   transition: stroke .16s ease, stroke-width .16s ease;
 }
-.gedge.on { stroke: #4E7A62; stroke-width: 2.5; }
+.gedge.on { stroke: #4A7396; stroke-width: 2.5; }
 .gnode {
   fill: var(--panel-2);
-  stroke: #37453D;
+  stroke: #354350;
   stroke-width: 2;
   transition: fill .16s ease, stroke .16s ease;
 }
-.gnode.visited { fill: #1f4d38; stroke: var(--accent-2); }
+.gnode.visited { fill: #17384D; stroke: var(--accent-2); }
 .gnode.current { stroke: var(--warn); stroke-width: 3.5; }
 .glabel {
   fill: var(--text);
@@ -700,7 +721,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 
 /* ---- 여기까지 실행 ---- */
 .gutter div { cursor: pointer; }
-.gutter div:hover { color: var(--text); background: #202A25; }
+.gutter div:hover { color: var(--text); background: #1E2731; }
 .gutter div.stop {
   color: #1a0f04;
   background: var(--warn);
@@ -783,7 +804,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 }
 .cs-row.top {
   border-left-color: var(--warn);
-  background: #1F2A24;
+  background: #1B2632;
   color: var(--text);
 }
 .cs-fn { color: var(--accent); font-weight: 700; }
@@ -799,7 +820,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 .grid td.over { color: var(--warn); }
 
 .gweight {
-  fill: #7E9186;
+  fill: #7C8B9A;
   font-size: 10px;
   text-anchor: middle;
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
@@ -808,7 +829,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   stroke-width: 3px;
 }
 
-.cs-line { color: #59695E; margin-left: 8px; font-size: 11px; }
+.cs-line { color: #576673; margin-left: 8px; font-size: 11px; }
 .cs-row.top .cs-line { color: var(--accent); }
 
 /* ---- 부모 포인터 배열 (유니온 파인드) ---- */
@@ -822,11 +843,11 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 }
 .fnode {
   fill: var(--panel-2);
-  stroke: #37453D;
+  stroke: #354350;
   stroke-width: 2;
   transition: fill .16s ease, stroke .16s ease;
 }
-.fnode.root { fill: #1f4d38; stroke: var(--accent-2); }
+.fnode.root { fill: #17384D; stroke: var(--accent-2); }
 .flabel {
   fill: var(--text);
   font-size: 12px;
@@ -861,7 +882,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 /* ---- 클래스 객체 (연결리스트/트리) ---- */
 .oviz { display: block; width: 100%; max-width: 560px; height: auto; }
 .oedge { stroke: var(--line); stroke-width: 1.5; transition: stroke .16s ease; }
-.oedge.on { stroke: #4E7A62; stroke-width: 2.5; }
+.oedge.on { stroke: #4A7396; stroke-width: 2.5; }
 .onode {
   fill: var(--panel-2);
   stroke: var(--bar);
@@ -884,7 +905,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
 }
 .oefield {
-  fill: #6E8175;
+  fill: #6C7C8B;
   font-size: 9px;
   text-anchor: middle;
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
@@ -976,7 +997,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   stroke-width: 2;
   transition: opacity .16s ease, fill .16s ease;
 }
-.tnode.term { fill: #1f4d38; stroke: var(--accent-2); }
+.tnode.term { fill: #17384D; stroke: var(--accent-2); }
 .tnode.gone { opacity: .18; }
 
 /* ---- 참/거짓 배열 (체, visited) ---- */
@@ -1050,8 +1071,10 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   z-index: 3;
   margin: -4px -4px 12px;
   padding: 8px 12px;
-  background: #1E3028;
-  border: 0.8px solid #324739;
+  background: rgba(22, 40, 58, .78);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  border: 0.8px solid #2C4257;
   border-left: 3px solid var(--warn);
   border-radius: 7px;
   box-shadow: var(--card-shadow);
@@ -1087,7 +1110,9 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   z-index: 4;
   margin: -4px -4px 6px;
   padding: 6px 12px;
-  background: #1B2622;
+  background: rgba(24, 36, 48, .78);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
   border: 0.8px solid var(--line);
   border-left: 3px solid var(--accent-2);
   border-radius: 7px;
@@ -1119,7 +1144,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
    막대는 그대로 두고 뒤에 깔린 바닥만 밝힌다. 너무 옅게 하면 있으나 마나라서
    위아래 테두리로 구간의 시작과 끝을 분명히 끊어 준다. */
 .bar-col.in-span, .cell.in-span {
-  background: #20342A;
+  background: #1C2E40;
   box-shadow: inset 0 2px 0 var(--accent), inset 0 -2px 0 var(--accent);
   border-radius: 2px;
 }
@@ -1127,10 +1152,10 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 /* 호출 트리. 아직 안 불린 호출은 흐리게, 지금 열려 있는 호출은 테두리를 밝게,
    끝난 호출은 아래에 반환값을 적는다. 세 상태가 구별돼야 "지금 어디" 가 읽힌다. */
 .calltree { max-width: 100%; }
-.cedge { stroke: #33453B; stroke-width: 1.5; }
-.cedge.todo { stroke: #202A25; }
+.cedge { stroke: #313F4C; stroke-width: 1.5; }
+.cedge.todo { stroke: #1E2731; }
 .cedge.live { stroke: var(--warn); stroke-width: 2.5; }
-.cbox { fill: var(--panel-2); stroke: #3A4C41; stroke-width: 1.5; }
+.cbox { fill: var(--panel-2); stroke: #38495A; stroke-width: 1.5; }
 .clabel {
   fill: var(--text); font-family: inherit; font-size: 11px; font-weight: 600;
   text-anchor: middle; dominant-baseline: middle;
@@ -1139,22 +1164,22 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   fill: var(--accent-2); font-family: inherit; font-size: 9px;
   text-anchor: middle; dominant-baseline: middle;
 }
-.cnode.todo .cbox { fill: #151C19; stroke: #26332C; }
-.cnode.todo .clabel { fill: #4B5A50; }
+.cnode.todo .cbox { fill: #141A22; stroke: #242E39; }
+.cnode.todo .clabel { fill: #495764; }
 .cnode.live .cbox { fill: #33281c; stroke: var(--warn); stroke-width: 2.5; }
-.cnode.done .cbox { fill: #1c2a26; stroke: #2f4a40; }
+.cnode.done .cbox { fill: #1A2733; stroke: #2B4152; }
 
 /* 고른 간선(MST). "지금 보는 중"(주황)과 "골랐다"(초록)는 다른 상태다. */
 .gedge.picked { stroke: var(--accent-2); stroke-width: 3.5; }
 
 /* 커서가 지나온 자취(역추적 경로)와 경유지 축(플로이드의 k).
    지금 칸(cursor)보다 약하게 — 셋이 같은 세기면 어디가 지금인지 안 보인다. */
-.grid td.trail { box-shadow: inset 0 0 0 1px #4E8A6B; }
+.grid td.trail { box-shadow: inset 0 0 0 1px #4A83AA; }
 .grid td.via { background-image: linear-gradient(rgba(255,176,70,.13), rgba(255,176,70,.13)); }
 
 /* 좌표 평면. 점이 주인공이라 축은 눈에 안 띄게, 눈금은 양 끝만. */
 .scatter { max-width: 520px; }
-.axis { stroke: #33453B; stroke-width: 1; }
+.axis { stroke: #313F4C; stroke-width: 1; }
 .sxlab, .sylab {
   fill: var(--dim); font-family: inherit; font-size: 10px;
   dominant-baseline: middle;
@@ -1178,7 +1203,7 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
   padding: 3px 9px; text-align: left; min-width: 0; height: auto;
   font-variant-numeric: tabular-nums;
 }
-.grid.records tr.changed td { background: rgba(156, 233, 185, .09); }
+.grid.records tr.changed td { background: rgba(159, 212, 242, .10); }
 .grid.records tr.cursor td { outline: 2px solid var(--warn); outline-offset: -2px; }
 
 /* 블록 제목에 붙은 사용자 주석. 내가 붙인 꼬리표(모양·역할)와 구별되게
