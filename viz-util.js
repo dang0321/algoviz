@@ -30,8 +30,35 @@ const VizUtil = (() => {
       // 노드 번호가 꼭 숫자일 필요는 없다. 백준에는 도시 이름·단어를 노드로
       // 쓰는 그래프 문제가 흔한데, 지금까지 통째로 안 보였다.
       const nodeish = (x) => isNum(x) || (typeof x === "string" && x.length > 0 && x.length <= 14);
-      if (!rows.every(([k, val]) => nodeish(k) && Array.isArray(val))) return null;
       const keys = new Set(rows.map(([k]) => k));
+      // graph = {'A': {'B': 3, 'C': 1}, ...} — 값이 또 딕셔너리이고 그 키가
+      // 바깥 키 집합에 들어 있으면 그건 **가중치 그래프**다.
+      // 예전엔 이걸 트라이로 그렸다 — 겹친 딕셔너리라는 것만 보고.
+      const inner = (x) => x && !Array.isArray(x) && typeof x === "object" && Array.isArray(x.__dict__);
+      const allWeights = (val) => val.__dict__.length > 0 &&
+                                  val.__dict__.every(([, w]) => isNum(w));
+      if (rows.every(([, val]) => inner(val) && allWeights(val))) {
+        let ok = 0, bad = 0;
+        const es = [], ns = new Set(), ws = {};
+        for (const [k2, val] of rows) {
+          ns.add(k2);
+          for (const [to, w] of val.__dict__) {
+            if (keys.has(to)) ok++; else bad++;
+            ns.add(to);
+            es.push([k2, to]);
+            if (isNum(w)) ws[edgeKey(k2, to)] = w;
+          }
+        }
+        if (ok >= 2 && bad <= ok * 0.1 && ns.size <= NODE_MAX) {
+          const cmp0 = (a, b) => (isNum(a) && isNum(b)) ? a - b
+                              : String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+          return { nodes: [...ns].sort(cmp0), edges: es,
+                   weights: Object.keys(ws).length ? ws : null };
+        }
+      }
+
+
+      if (!rows.every(([k, val]) => nodeish(k) && Array.isArray(val))) return null;
 
       // 이웃을 어떻게 읽을지 세 가지로 시도한다:
       //   [2, 3]          숫자가 곧 이웃
@@ -288,6 +315,10 @@ const VizUtil = (() => {
     if (!args) return args;
     const out = {};
     for (const [k, v] of Object.entries(args)) {
+      // 메서드의 self 는 인자가 아니라 "누가 부르는가"다. 이걸 라벨에 넣으면
+      // find(self=UnionFind(UnionFind), x=2) 가 되어 정작 중요한 x=2 가 묻힌다.
+      // 호출 트리에서는 상자마다 이 글자가 겹쳐 아예 못 읽는 그림이 됐다.
+      if (k === "self" || k === "cls") continue;
       out[k] = deref(v, objs);
     }
     return out;

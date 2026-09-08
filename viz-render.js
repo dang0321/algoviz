@@ -173,6 +173,14 @@ const VizRender = (() => {
   }
 
   function titleOf(b, demote) {
+    // 같은 값을 이름만 바꿔 든 것들이 있으면 제목에 적는다 (= arr, out).
+    // 숨기지 않고 적어 두는 게 정보다 — 인자로 넘긴 그 이름이 이 값이라는 뜻.
+    const alias = b.alias && b.alias.length
+      ? '<span class="alias">= ' + b.alias.join(", ") + "</span>" : "";
+    return titleBody(b, demote) + alias;
+  }
+
+  function titleBody(b, demote) {
     const tag = (t) => " <span>· " + t + "</span>";
     // 사용자가 선언 옆에 써 둔 말이 있으면 그게 이 그림의 이름이다.
     // 내가 유추한 역할("채우는 표")보다 언제나 정확하므로 그쪽을 덮는다.

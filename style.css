@@ -526,6 +526,15 @@ input[type="range"]::-moz-range-thumb {
 
 .bars.small { height: 70px; }
 .viz-title span { color: var(--faint); }
+/* 같은 값을 든 다른 이름들. 함수에 넘긴 인자 이름이 여기 온다. */
+.viz-title .alias {
+  margin-left: 8px;
+  color: var(--dim-2);
+  font-size: 11px;
+  border: 0.8px solid var(--line);
+  border-radius: 5px;
+  padding: 1px 6px;
+}
 
 .pane-head select {
   background: var(--panel-2);

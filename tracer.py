@@ -165,6 +165,42 @@ def _only_locals(frame, objs):
     return out
 
 
+def _expand_objs(snap_vars, objs):
+    """객체 속에 든 자료구조를 uf.parent 같은 이름으로 꺼내 놓는다.
+
+    클래스로 감싼 코드가 흔하다 — UnionFind, 힙, 그래프를 self.parent /
+    self.heap 에 들고 있는 꼴이다. 그런데 객체는 {"__ref__": 1} 로만 찍히니,
+    화면 쪽에서 보면 **그 코드의 알맹이가 통째로 없다**. 실제로 유니온 파인드를
+    클래스로 짠 코드에서 parent 배열이 한 번도 안 보였다.
+
+    꺼낸 이름은 평범한 변수처럼 생겼으므로 아래 있는 판정·그리기가 그대로 쓴다.
+    짧은 것과 스칼라는 안 꺼낸다 — 그건 변수 상자에 이미 나온다.
+    """
+    if not objs:
+        return
+    add = {}
+    for name, snap in list(snap_vars.items()):
+        if not isinstance(snap, dict):
+            continue
+        oid = snap.get("__ref__")
+        if oid is None:
+            continue
+        body = objs.get(oid)
+        if not isinstance(body, dict):
+            continue
+        for fk, fv in (body.get("fields") or {}).items():
+            if fk.startswith("_"):
+                continue
+            if isinstance(fv, list) and len(fv) >= 3:
+                add[name + "." + fk] = fv
+            elif isinstance(fv, dict) and len(fv.get("__dict__") or []) >= 3:
+                add[name + "." + fk] = fv
+            if len(add) >= 6:                  # 너무 많이 꺼내면 화면이 밭이 된다
+                break
+    for k, v in add.items():
+        snap_vars.setdefault(k, v)
+
+
 def _locals_of(frame, objs):
     """이 프레임에서 보이는 변수들. 전역도 같이 담는다.
 
@@ -785,6 +821,7 @@ def run(source, stdin_text="", end_line=0, auto_input=False):
                 raise _StepLimit()
             objs = {}
             snap_vars, snap_deques = _locals_of(frame, objs)
+            _expand_objs(snap_vars, objs)
             entry = {
                 "line": frame.f_lineno,
                 "event": event,

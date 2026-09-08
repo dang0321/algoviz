@@ -516,9 +516,13 @@ const VizDetect = (() => {
     // 같은 코드 안에 그래프가 이미 잡혔고, 어떤 "쌍 목록"의 숫자가 전부 그
     // 그래프의 노드라면 그건 구간이 아니라 간선 리스트다. 가로 막대로 눕히면
     // (2,3) 을 "2에서 3까지의 시간"으로 읽게 만들어서 오히려 틀리게 가르친다.
-    if (graphs.length) {
+    // 부모 배열(유니온 파인드)만 있고 그래프 블록이 없는 경우도 같다.
+    // 클래스로 감싼 유니온 파인드에서 edges 가 가로 막대(구간)로 그려졌다 —
+    // (0, 1) 을 "0초부터 1초까지"로 읽게 만드는, 틀리게 가르치는 그림이다.
+    if (graphs.length || forests.length) {
       const gnodes = new Set();
       for (const g of graphs) for (const n of g.nodes) gnodes.add(Number(n));
+      for (const f of forests) for (let i = 0; i < f.len; i++) gnodes.add(i);
       for (let i = blocks.length - 1; i >= 0; i--) {
         const b = blocks[i];
         if (b.kind !== "intervals") continue;
@@ -546,6 +550,28 @@ const VizDetect = (() => {
       b.note = notes[b.name] || notes[b.name.replace(/ 연결$/, "")] || undefined;
     }
 
+    // 같은 값을 이름만 바꿔 든 블록들을 하나로 합친다 (위 aliasGroups 주석 참고).
+    // 어느 이름을 남길지: **오래 살아 있는 쪽**. 대개 부른 쪽의 원래 이름이다.
+    const aliasDropped = new Set();
+    {
+      const drawable = blocks.filter((b) => b.name && b.kind !== "series" &&
+                                            b.kind !== "stack" && b.kind !== "calltree");
+      const groups = aliasGroups(timeline, drawable.map((b) => b.name));
+      for (const g of groups) {
+        const life = (n) => (seen[n] ? (seen[n].arr || 0) + (seen[n].grid || 0) +
+                                       (seen[n].charFrames || 0) + (seen[n].numFrames || 0) : 0);
+        const keep = g.slice().sort((x, y) => life(y) - life(x))[0];
+        const drop = g.filter((n) => n !== keep);
+        for (let i = blocks.length - 1; i >= 0; i--) {
+          if (drop.includes(blocks[i].name)) blocks.splice(i, 1);
+        }
+        const host = blocks.find((b) => b.name === keep);
+        // 지운 이름을 제목에 적어 둔다. 같은 값이라는 걸 알려주는 게 정보다.
+        if (host) host.alias = drop;
+        for (const n of drop) aliasDropped.add(n);
+      }
+    }
+
     // 아무 그림도 못 받은 쌍 목록을 마지막에 줍는다 (위 findPairLists 주석 참고).
     const drawnAll = new Set(blocks.map((b) => b.name));
     const pairLists = findPairLists(timeline, seen, drawnAll, claimed);
@@ -562,17 +588,32 @@ const VizDetect = (() => {
     }
     blocks.sort((a, b) => a.rank - b.rank || b.changes - a.changes);
 
+    // 별명으로 지운 이름이 종류별 목록에 남아 있으면, 그리는 쪽이 화면에
+    // 붙지도 않은 블록을 갱신하려다 그 프레임부터 재생이 멈춘다.
+    // (산점도에서 똑같이 겪었다 — 한 군데만 지우면 안 되고 전부 걸러야 한다)
+    const dropFrom = (list) => Array.isArray(list)
+      ? list.filter((x) => !(x && x.name && aliasDropped.has(x.name))) : list;
+
     // 산점도로 뽑혔다가 나중에 다른 그림(간선 그래프)에 이름을 뺏긴 것은
     // 블록이 안 붙는다. 목록에 남겨두면 그리는 쪽이 없는 블록을 찾다 멈춘다.
     const liveNames = new Set(blocks.map((b) => b.name));
     const liveScatters = scatters.filter((x) => liveNames.has(x.name));
 
-    return { arrays, grids, chars, forests, heaps, objects, containers, intervals, tries, pairLists, buckets,
+    const plan0 = { arrays, grids, chars, forests, heaps, objects, containers, intervals, tries, pairLists, buckets,
              flags, counts, memoGrids, pairHeaps, scatters: liveScatters, records, sequences, sets, charGrids, segtrees, bitmasks, ranges, source,
              sections: findSections(source),
              branches: branchOutcomes(timeline, source),
              pointerOf, spanOf, graphs, series, blocks, pointers, scalars,
              primary: primary && primary.name };
+    // **종류별 블록 목록만** 거른다. plan 에는 프레임 번호로 찾아 쓰는 배열도
+    // 있어서(branches 가 그렇다) 통째로 filter 하면 빈칸이 메워지며 번호가
+    // 통째로 밀린다 — 스물몇 개 예제의 서술이 한 칸씩 어긋났다.
+    const DROPPABLE = ["arrays", "grids", "chars", "forests", "heaps", "containers",
+                       "intervals", "tries", "flags", "counts", "memoGrids", "pairHeaps",
+                       "scatters", "records", "sequences", "sets", "charGrids",
+                       "segtrees", "ranges", "pairLists", "buckets", "graphs"];
+    for (const key of DROPPABLE) plan0[key] = dropFrom(plan0[key]);
+    return plan0;
   }
 
 
@@ -900,6 +941,107 @@ const VizDetect = (() => {
    * **한 열이라도 숫자가 아닐 때만** 여기서 그린다. */
   const REC_ROWS = 40;
   const PAIR_ROWS = 24;
+
+  /* ---------- 같은 값을 이름만 바꿔 든 것들 ----------
+   * 사용자가 붙여넣는 코드는 거의 함수를 쓴다. 그러면 같은 리스트가
+   *   data = [...]      (부른 쪽)
+   *   def solve(arr)    (받은 쪽)
+   *   out = solve(data) (돌려받은 쪽)
+   * 세 이름으로 나타나고, 똑같은 그림이 화면에 셋 뜬다. 실제로 그랬다.
+   *
+   * 근거 두 가지로 잇는다.
+   *   1) 호출하는 순간: 넘어온 인자 값이 부른 쪽 어느 변수와 똑같으면 그건
+   *      같은 객체다. 추적기는 프레임마다 **그 프레임의 지역변수만** 찍으므로
+   *      data 와 arr 은 한 프레임에 같이 안 나온다 — 값 비교만으로는 절대 못 잇는다.
+   *   2) 한 프레임 안에서 값이 늘 같은 두 이름 (out = solve(data) 뒤의 data/out).
+   *
+   * 스칼라와 짧은 것은 안 잇는다. 우연히 같을 수 있고, 이어봐야 얻는 게 없다.
+   */
+  function bigVal(v) {
+    if (Array.isArray(v)) return v.length >= 3;
+    if (v && typeof v === "object" && Array.isArray(v.__dict__)) return v.__dict__.length >= 3;
+    return false;
+  }
+
+  function aliasGroups(timeline, names) {
+    const want = new Set(names);
+    const link = new Map();
+    const join = (x, y) => {
+      if (x === y || !want.has(x) || !want.has(y)) return;
+      if (!link.has(x)) link.set(x, new Set());
+      if (!link.has(y)) link.set(y, new Set());
+      link.get(x).add(y);
+      link.get(y).add(x);
+    };
+
+    // 되도는 함수는 인자가 부를 때마다 다른 값이 된다. 병합정렬의 arr 은
+    // 매 단계 다른 조각이라, 맨 처음 넘어온 a 와 같다고 하나로 묶으면
+    // "지금 보고 있는 조각"이라는 그림을 통째로 잃는다. 그런 함수는 건너뛴다.
+    const depthsOf = new Map();
+    for (const f of timeline) {
+      if (!f.func) continue;
+      if (!depthsOf.has(f.func)) depthsOf.set(f.func, new Set());
+      depthsOf.get(f.func).add(f.depth);
+    }
+    const recursive = new Set();
+    for (const [fn, ds] of depthsOf) if (ds.size > 1) recursive.add(fn);
+
+    // 한 겹 얕은 쪽에서 가장 가까운 프레임 (부른 쪽)
+    const nearest = (t, depth, dir) => {
+      for (let u = t + dir; u >= 0 && u < timeline.length && Math.abs(u - t) < 40; u += dir) {
+        if (timeline[u].depth === depth) return timeline[u];
+      }
+      return null;
+    };
+
+    const matchAcross = (inner, outer, innerFn, outerFn) => {
+      if (!inner || !outer) return;
+      // 같은 함수끼리는 잇지 않는다. 되도는 호출에서 부모·자식 프레임에
+      // 같은 이름들이 같은 값으로 나란히 있어, 남남인 변수까지 묶여 버린다
+      // (타잔의 idx 와 low 가 실제로 그렇게 묶였다).
+      if (!innerFn || !outerFn || innerFn === outerFn) return;
+      if (recursive.has(innerFn)) return;
+      for (const [pn, pv] of Object.entries(inner.vars)) {
+        if (!bigVal(pv)) continue;
+        const key = JSON.stringify(pv);
+        for (const [cn, cv] of Object.entries(outer.vars)) {
+          if (bigVal(cv) && JSON.stringify(cv) === key) join(pn, cn);
+        }
+      }
+    };
+
+    for (let t = 0; t < timeline.length; t++) {
+      const f = timeline[t];
+      if (!f.depth) continue;
+      // 들어가는 순간: 넘어온 인자가 부른 쪽 어느 변수와 같은가
+      if (f.event === "call") {
+        const caller = nearest(t, f.depth - 1, -1);
+        matchAcross(f, caller, f.func, caller && caller.func);
+      }
+      // 나오는 순간: 돌려준 값을 부른 쪽이 어느 이름으로 받았는가
+      if (f.event === "return") {
+        const caller = nearest(t, f.depth - 1, +1);
+        matchAcross(f, caller, f.func, caller && caller.func);
+      }
+    }
+
+    const seenName = new Set(), groups = [];
+    for (const n of names) {
+      if (seenName.has(n) || !link.has(n)) continue;
+      const stack = [n], g = [];
+      seenName.add(n);
+      while (stack.length) {
+        const x = stack.pop();
+        g.push(x);
+        for (const y of (link.get(x) || [])) {
+          if (!seenName.has(y)) { seenName.add(y); stack.push(y); }
+        }
+      }
+      if (g.length > 1) groups.push(g);
+    }
+    return groups;
+  }
+
   const BUCKET_MAX = 16;
 
   /* ---------- 통 나누기 (기수·계수 정렬, 해시 체이닝) ----------
@@ -1357,6 +1499,9 @@ const VizDetect = (() => {
   function findTries(timeline, seen) {
     const out = [];
     for (const k of Object.keys(seen)) {
+      // 이미 그래프로 읽힌 이름은 트라이가 아니다. 가중치 딕셔너리 그래프
+      // ({'A': {'B': 3}})가 "겹친 딕셔너리"라는 이유만으로 트라이로 그려졌다.
+      if (seen[k].adjHits) continue;
       const acc = { nodes: new Map(), edges: new Map(), dicts: 0 };
       let frames = 0, lastCount = 0;
       for (const f of timeline) {
