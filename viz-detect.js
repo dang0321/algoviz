@@ -218,7 +218,7 @@ const VizDetect = (() => {
       if (heapNames.has(arrays[i].name)) arrays.splice(i, 1);   // 막대로는 안 그린다
     }
 
-    const forests = parentForests(timeline, seen);
+    const forests = parentForests(timeline, seen, source);
     const forestNames = new Set(forests.map((f) => f.name));
     // 부모 배열이면서 동시에 세그먼트 트리일 수는 없다. 유니온 파인드의
     // parent = list(range(n)) 이 우연히 세그먼트 트리 관계까지 만족해서
@@ -1440,7 +1440,42 @@ const VizDetect = (() => {
    *   - 모든 프레임에서 값이 전부 자기 배열의 유효한 인덱스
    *   - 자기 자신을 가리키지 않는 칸이 한 번은 있다 (안 그러면 그냥 0..n-1 나열)
    *   - 따라가면 항상 끝난다 (2칸 이상 순환이 없다)  */
-  function parentForests(timeline, seen) {
+  /* dist[v] = dist[u] + 1 처럼 **자기 값에 수를 더해** 채우는 배열은
+   * 거리·DP 표지 포인터가 아니다. 값만 보면 "다들 앞을 가리킨다"를 만족해
+   * 화살표 그림으로 잡히는데, 그건 뜻이 없는 그림이다 (BFS 거리에서 실제로 그랬다).
+   * 부모 배열은 par[v] = u 처럼 **다른 값을 그대로** 넣는다 — 덧셈이 없다. */
+  function selfAdded(source, name) {
+    if (!source) return false;
+    const lines = source.split(String.fromCharCode(10));
+    for (const raw of lines) {
+      const line = raw.split("#")[0];
+      const at = assignPos(line);
+      if (at < 0) continue;
+      const lhs = line.slice(0, at), rhs = line.slice(at + 1);
+      if (lhs.indexOf(name + "[") < 0) continue;
+      if (rhs.indexOf(name + "[") < 0) continue;
+      if (rhs.indexOf("+") >= 0 || rhs.indexOf("-") >= 0) return true;
+    }
+    return false;
+  }
+
+  /* 대입 기호 = 의 자리. ==, <=, >=, != 와 괄호 안은 뺀다. */
+  function assignPos(line) {
+    let depth = 0;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === "(" || c === "[" || c === "{") depth++;
+      else if (c === ")" || c === "]" || c === "}") depth--;
+      else if (c === "=" && depth === 0) {
+        if (line[i + 1] === "=") return -1;
+        if (i > 0 && "=!<>+-*/%".indexOf(line[i - 1]) >= 0) continue;
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  function parentForests(timeline, seen, source) {
     const out = [];
     for (const [k, s] of Object.entries(seen)) {
       if (!s.arr || s.maxLen < 3 || s.maxLen > 40) continue;
@@ -1448,6 +1483,7 @@ const VizDetect = (() => {
       // 우연히 "자기보다 앞을 가리킨다"를 만족하지만 포인터가 아니라 상수 표다.
       // 배열 목록에서 이미 빼고 있는 것과 같은 조건으로 여기서도 뺀다.
       if (!s.changes && s.maxLen <= 8 && s.gmin >= -1 && s.gmax <= 1) continue;
+      if (selfAdded(source, k)) continue;   // 거리·DP 표는 포인터가 아니다
       let okFrames = 0, sawLink = false, bad = false, sawAllSelf = false;
       let backward = true, kinds = new Set(), firstSeen = true;
       const lens = new Set();

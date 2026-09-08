@@ -6,6 +6,7 @@
 
 import sys
 import io
+import re
 import json
 import types
 import collections
@@ -221,9 +222,32 @@ _FAKE_WORDS = ["apple", "banana", "cherry", "date", "elder", "fig", "grape", "ki
 # 테스트케이스 개수로 보이는 이름. 크게 주면 같은 그림을 열 번 반복해서 보게 된다.
 _TC_NAMES = ("t", "tc", "test", "tests", "testcase", "test_case", "case", "cases")
 
+# 두 개를 받아 "구간"으로 쓰는 이름들. 뒤집혀 나오면 arr[l-1:r] 이 빈 칸이 되어
+# 질의 답이 전부 0 으로 나온다. 이런 이름 쌍은 작은 수를 앞에 놓는다.
+_RANGE_PAIRS = (("l", "r"), ("lo", "hi"), ("s", "e"),
+                ("left", "right"), ("start", "end"))
 
-def _targets(t):
-    """`a, b = map(...)` 처럼 왼쪽에서 몇 개를 받는지 센다."""
+# 문자열을 찾는 코드에 무관한 두 낱말(apple / banana)을 주면 "못 찾음"만 보인다.
+# 겹치는 접두사가 있는 이 쌍은 KMP·부분문자열·LCS 어디에 넣어도 그림이 산다.
+_PAIR_TEXT = "abacaba"
+_PAIR_PAT = "aba"
+
+_INT_CALL = re.compile(r"\bint\(\s*([A-Za-z_]\w*)\s*\)")
+_NUM_WORD = re.compile(r"\b(int|float)\s*[(,]")
+_LIT_EQ = re.compile(r"""\b([A-Za-z_]\w*)(?:\[0\])?\s*==\s*(['"])([^'"]*)\2""")
+_NUM_EQ = re.compile(r"""\b([A-Za-z_]\w*)\s*==\s*(-?\d+)\b""")
+_RANGE1 = re.compile(r"""range\(\s*([A-Za-z_]\w*)""")
+_RANGE2 = re.compile(r"""range\([^,)]*,\s*([A-Za-z_]\w*)""")
+_TIMES = re.compile(r"""\*\(?\s*([A-Za-z_]\w*)""")
+
+# 여러 숫자를 반복해 읽는 줄은 대개 간선·좌표·물건이다. 아무 수나 주면
+# 늘 이웃끼리 이어진 한 줄짜리 그래프가 나온다. 미리 짜둔 이 쌍들은
+# 다섯 점을 고루 잇는다 — 어느 알고리즘에 넣어도 볼 것이 생긴다.
+_PAIRS = ((1, 2), (1, 3), (2, 4), (3, 5), (4, 5), (2, 3), (1, 4), (3, 4), (2, 5), (1, 5))
+
+
+def _target_names(t):
+    """`a, b = map(...)` 의 왼쪽에서 받는 이름들. 이름이 아니면 빈 문자열."""
     cut = -1
     depth = 0
     for i, c in enumerate(t):
@@ -239,29 +263,130 @@ def _targets(t):
             cut = i
             break
     if cut < 0:
-        return 1
-    head = t[:cut]
-    return max(1, len([x for x in head.split(",") if x.strip()]))
+        # for line in sys.stdin: 처럼 = 이 없는 줄. 반복 변수가 받는 이름이다.
+        if t.startswith("for ") and " in " in t:
+            head = t[4:t.find(" in ")].strip().strip("()[]")
+            out = []
+            for x in head.split(","):
+                x = x.strip()
+                out.append(x if x.isidentifier() else "")
+            return out
+        return []
+    head = t[:cut].strip().strip("()[]")
+    out = []
+    for x in head.split(","):
+        x = x.strip()
+        out.append(x if x.isidentifier() else "")
+    return out
 
 
-def _pick_len(last_n):
-    n = last_n if isinstance(last_n, int) else 5
+def _targets(t):
+    """`a, b = map(...)` 처럼 왼쪽에서 몇 개를 받는지 센다."""
+    return max(1, len(_target_names(t)))
+
+
+def _pick_len(state):
+    """몇 개를 줄 것인가. 가로 크기를 이미 읽었으면 그걸 쓴다."""
+    n = state.get("width")
+    if not isinstance(n, int):
+        n = state["last_n"]
+    if not isinstance(n, int):
+        n = 5
     return max(2, min(8, n))
 
 
 def _wants_number(t):
-    return ("int(" in t) or ("map(int" in t) or ("int," in t) or ("float(" in t)
+    """이 줄이 숫자를 원하는가. map(int, ...) 처럼 괄호 없이 쉼표만 오는 꼴도
+    잡아야 한다. 예전엔 int( 만 봐서 map(float, ...) 이 낱말을 받고 터졌다."""
+    return _NUM_WORD.search(t) is not None
 
 
-def _fake_line(text, state, count):
+def _scan_hints(source):
+    """코드 전체를 한 번 훑어, 한 줄만 봐서는 알 수 없는 것들을 모은다.
+
+    한 줄만 보는 방식의 한계가 여기서 드러났다.
+      age, name = input().split() 은 그 줄만 보면 숫자가 없다. 하지만
+      아래에서 int(age) 를 하므로 age 자리는 숫자여야 한다.
+    """
+    nospace = "".join(source.split())
+    ints = set(_INT_CALL.findall(source))
+
+    # if op == "add": 처럼 정해진 낱말과 비교하는 자리에 아무 낱말이나 넣으면
+    # 조건이 한 번도 참이 안 되어 "아무 일도 안 일어나는" 그림이 된다.
+    lits = {}
+    for name, _q, word in _LIT_EQ.findall(source):
+        if word:
+            lits.setdefault(name, [])
+            if word not in lits[name]:
+                lits[name].append(word)
+
+    # 낱말 한 개를 통째로 읽는 줄이 정확히 두 개고, 둘 다 반복문 안이 아니면
+    # "문자열 두 개를 받아 비교하는 문제"로 본다.
+    bare = 0
+    for line in source.split("\n"):
+        s = line.strip()
+        if "input(" not in s and "readline(" not in s:
+            continue
+        if ("split" in s) or ("for " in s) or _wants_number(s):
+            continue
+        bare += 1
+    # board[i][j] 처럼 두 번 첨자를 붙이면, 한 줄씩 읽은 문자열은 낱말이 아니라
+    # **격자 한 줄**이다. 이게 없으면 n 개의 낱말을 읽는 코드와 구별할 수 없다.
+    grid2d = re.search(r"[A-Za-z_]\w*\[[^]]+\]\[[^]]+\]", nospace) is not None
+    hunts = any(m in nospace for m in
+                (".find(", ".index(", ".count(", ".startswith(", ".endswith("))
+    twostr = (bare == 2) and (hunts or ("dp[" in nospace))
+
+    # 크기로 쓰이는 이름. range(n) 이나 [0] * n 의 자리에 오는 것들이다.
+    # 이걸 알아야 "5 6" 같은 크기 줄과 간선 줄을 갈라낼 수 있다.
+    sizes = set(_RANGE1.findall(nospace))
+    sizes |= set(_RANGE2.findall(nospace))
+    sizes |= set(_TIMES.findall(nospace))
+
+    # x == 0 처럼 정해진 숫자와 비교하는 자리. 그 숫자가 한 번도 안 나오면
+    # 그쪽 가지는 영영 안 돌아 "밀어넣기만 하는" 그림이 된다.
+    nums = {}
+    for name, lit in _NUM_EQ.findall(source):
+        nums.setdefault(name, [])
+        if int(lit) not in nums[name]:
+            nums[name].append(int(lit))
+
+    return {"ints": ints, "twostr": twostr, "nospace": nospace,
+            "grid2d": grid2d, "lits": lits, "sizes": sizes, "nums": nums}
+
+
+def _ranged(names, hints):
+    """이 두 이름이 구간의 양 끝으로 쓰이는가. 그러면 작은 수를 앞에 둔다."""
+    if len(names) != 2:
+        return False
+    a, b = names[0].lower(), names[1].lower()
+    if (a, b) not in _RANGE_PAIRS:
+        return False
+    ns = hints["nospace"]
+    return (":" + names[1] + "]") in ns or ("range(" + names[0] + ",") in ns
+
+
+def _word_for(name, i, count, hints, rep):
+    """이름 하나가 받을 값. 정해진 낱말 > 숫자 > 아무 낱말 순으로 고른다."""
+    lit = hints["lits"].get(name)
+    if lit:
+        return lit[rep % len(lit)]
+    if name in hints["ints"]:
+        return str(((count * 3 + i * 4) % 9) + 1)
+    return _FAKE_WORDS[(count + i) % len(_FAKE_WORDS)]
+
+
+def _fake_line(text, state, count, hints, rep):
     """이 줄이 원하는 모양을 짐작해 한 줄을 지어낸다. state 를 직접 고친다.
 
-    state 가 기억하는 두 가지.
+    state 가 기억하는 것.
       last_n  직전에 지어낸 숫자. 다음 줄이 "몇 개짜리인가"에 쓴다
+      width   크기 줄에서 읽은 가로 길이. 표(격자)의 한 줄 길이가 된다
       bound   인덱스처럼 쓰일 숫자의 상한
+      words   낱말을 몇 번 지어냈는가
 
-    bound 가 필요한 이유: `n, m = map(int, input().split())` 다음에
-    `a, b = map(int, input().split())` 로 간선을 읽는 코드가 흔한데, 거기서
+    bound 가 필요한 이유: n, m = map(int, input().split()) 다음에
+    a, b = map(int, input().split()) 로 간선을 읽는 코드가 흔한데, 거기서
     n 보다 큰 번호를 주면 graph[a] 가 IndexError 로 터진다. 실제로 터졌다.
 
     그리고 **맨 처음 읽는 여러 숫자는 크기**(n, m)다. 여기에 상한을 걸면
@@ -270,67 +395,177 @@ def _fake_line(text, state, count):
     t = text.strip()
     has_split = ".split()" in t
     boxed = ("list(" in t) or ("sorted(" in t) or ("[*" in t) or ("*," in t)
+    # *arr, = map(int, input().split()) — 별표로 받는 것도 통째로 담는 줄이다.
+    # 예전엔 이걸 "두 개를 받는 줄"로 봐서 값 두 개만 줬다.
+    if "=" in t and "*" in t[:t.find("=")]:
+        boxed = True
     first = state["last_n"] is None
+    names = _target_names(t)
 
     if not _wants_number(t):
-        if has_split or boxed:
-            k = _pick_len(state["last_n"])
+        # 줄 전체엔 int 가 없어도, 받는 이름 중 일부만 아래에서 int() 되는 경우가 있다.
+        # age, name = input().split() 가 그것이다. 자리마다 갈라서 채운다.
+        # cmd = input().split() 뒤에 cmd[0] == "push" 로 갈라지는 꼴.
+        # 명령 낱말 하나에 값 하나를 붙여 준다 (cmd[1] 을 쓰는 코드가 많다).
+        if has_split and len(names) == 1 and names[0] in hints["lits"]:
+            lit = hints["lits"][names[0]]
+            return lit[rep % len(lit)] + " " + str((count * 3 % 5) + 1)
+
+        if has_split and names and any(
+                (n in hints["ints"]) or (n in hints["lits"]) for n in names):
+            return " ".join(_word_for(n, i, count, hints, rep)
+                            for i, n in enumerate(names))
+
+        if has_split:
+            # 받는 개수를 지켜야 한다. 예전엔 늘 다섯 낱말을 줘서
+            # age, name = input().split() 이 "값이 너무 많다"로 터졌다.
+            k = _targets(t) if names else _pick_len(state)
             return " ".join(_FAKE_WORDS[(count + i) % len(_FAKE_WORDS)] for i in range(k))
+
+        if boxed:
+            k = _pick_len(state)
+            return " ".join(_FAKE_WORDS[(count + i) % len(_FAKE_WORDS)] for i in range(k))
+
+        # 낱말 한 개. 가로 크기를 이미 읽었다면 그건 낱말이 아니라 **지도 한 줄**이다.
+        # (n, m 을 읽고 나서 board = [input() for _ in range(n)] 하는 그 꼴)
+        wide = state.get("width")
+        if not isinstance(wide, int) and hints["grid2d"] and isinstance(state["last_n"], int):
+            wide = state["last_n"]          # n 만 읽은 정사각 격자
+        if isinstance(wide, int):
+            k = max(2, min(12, wide))
+            gap = (count % max(1, k - 2)) + 1
+            state["words"] += 1
+            return "".join("." if (i == 0 or i == k - 1 or i == gap) else "#"
+                           for i in range(k))
+
+        if hints["twostr"] and state["words"] < 2:
+            state["words"] += 1
+            return _PAIR_TEXT if state["words"] == 1 else _PAIR_PAT
+
+        state["words"] += 1
+        if names and names[0]:
+            return _word_for(names[0], 0, count, hints, rep)
         return _FAKE_WORDS[count % len(_FAKE_WORDS)]
 
-    # 숫자를 붙여 쓴 한 줄. `list(map(int, input().strip()))` 은 미로 지도가 대표라
+    # 숫자를 붙여 쓴 한 줄. list(map(int, input().strip())) 은 미로 지도가 대표라
     # 길이 막히지 않게 1 을 많이 섞고 양 끝은 반드시 1 로 둔다 (안 그러면 못 도착한다).
     if not has_split and boxed:
-        k = _pick_len(state["last_n"])
+        k = _pick_len(state)
         # 줄마다 벽 자리를 옮겨 놓는다. 모든 줄이 똑같으면 지도가 아니라 줄무늬다.
         gap = (count % max(1, k - 2)) + 1
         return "".join("0" if (0 < i < k - 1 and i == gap) else "1" for i in range(k))
 
     if boxed:
         # 데이터 값이라 인덱스 상한을 안 지켜도 된다. 값이 다양해야 그림이 산다.
-        k = _pick_len(state["last_n"])
-        return " ".join(str((i * 5 + 3) % 9 + 1) for i in range(k))
+        # count 를 섞는 이유: 표를 여러 줄 읽을 때 모든 줄이 똑같으면
+        # 5x5 짜리 표가 같은 줄 다섯 개로 보인다 (실제로 그랬다).
+        k = _pick_len(state)
+        return " ".join(str(((count * 7 + i * 5 + 3) % 9) + 1) for i in range(k))
 
     k = _targets(t) if has_split else 1
     if k == 1:
-        head = t[:t.find("=")].strip().lower() if "=" in t else ""
-        if head in _TC_NAMES:
+        raw = names[0] if names else ""
+        head = raw.lower()
+        # 읽은 숫자가 곧바로 range() 로 들어가면 그건 "몇 번 반복하나"다.
+        # for _ in range(int(input())): 가 그것이다. 크게 주면 같은 그림만 반복된다.
+        tc = head in _TC_NAMES or "range(int(" in "".join(t.split())
+        if tc:
             state["last_n"] = 1
             state["bound"] = max(2, min(state["bound"], 5))
             return "1"
+
+        # 같은 줄을 여러 번 읽거나(한 줄 안에 for 가 있거나), 정해진 숫자와
+        # 비교되는 이름이면 그건 크기가 아니라 **값**이다.
+        # 예전엔 전부 5 를 줘서, 힙에 5 를 다섯 번 넣는 그림만 나왔다.
+        lit = hints["nums"].get(raw)
+        if rep > 0 or ("for " in t) or lit:
+            b = state["bound"]
+            if lit and rep % 2 == 1:
+                return str(lit[(rep // 2) % len(lit)])
+            # rep * 7 은 상한 5 에서 1,3,5,2,4 로 한 바퀴를 돈다 (겹치지 않는다).
+            return str(((rep * 7) % b) + 1)
+
         state["last_n"] = 5
         state["bound"] = max(2, min(state["bound"], 5))
         return "5"
 
-    if first:
-        vals = [5, 4, 6, 3, 7][:k]                       # 첫 줄은 크기다. 넉넉히.
-    else:
-        # 줄마다 값을 옮긴다. 안 그러면 간선이 전부 "1 1" 이라 그래프가 점 하나가 된다.
-        b = state["bound"]
-        vals = [((count * 3 + i * 5) % b) + 1 for i in range(k)]
-        if k >= 2 and vals[0] == vals[1]:                # 자기 자신으로 가는 간선은 피한다
-            vals[1] = (vals[1] % b) + 1
-    state["last_n"] = vals[-1]
-    # **상한은 크기를 읽은 줄에서만 줄인다.** 간선 줄에서도 줄이면 상한이 계속
-    # 작아져서, 나중엔 값이 두 가지뿐이라 그래프가 점 두 개가 된다 (실제로 그랬다).
-    if first:
-        state["bound"] = max(2, min([state["bound"]] + vals))
+    # 크기 줄인가, 데이터 줄인가. 이걸 못 가르면 n, m 자리에 간선 번호가 들어가
+    # 5x5 판이 4x1 이 되고, 거꾸로 좌표 자리에 크기가 들어가 점이 다 같아진다.
+    # 판별 근거: 그 이름이 코드에서 range()·리스트 크기로 쓰이는가. 그리고
+    # **같은 줄을 두 번째 읽는 순간부터는 무조건 데이터다** (크기는 한 번만 읽는다).
+    sized = any(n and n in hints["sizes"] for n in names)
+    if (first or sized) and rep == 0:
+        vals = [5, 6, 4, 3, 7][:k]
+        # n - m 처럼 두 크기를 빼는 코드는 m 이 "칸 수"가 아니라 창 크기다.
+        # 그대로 5, 6 을 주면 n - m + 1 이 0 이 되어 아무 일도 안 일어난다.
+        window = k >= 2 and _subtracts(names, hints)
+        if window:
+            vals = [5, 3, 2, 2, 2][:k]
+        state["last_n"] = vals[0]
+        state["bound"] = max(2, min(state["bound"], vals[0]))
+        if k >= 2:
+            # 창 크기라면 판은 정사각이다. 아니면 마지막이 가로 길이 (n, m 관례).
+            state["width"] = vals[0] if window else vals[-1]
+        return " ".join(str(v) for v in vals)
+
+    # 데이터 줄. 미리 짜둔 쌍을 돌려 쓴다 — 계산식으로 만들면 상한에 따라
+    # 두 값이 늘 붙어 나와 그래프가 한 줄로 늘어섰다 (실제로 그랬다).
+    b = state["bound"]
+    pair = _PAIRS[state["rows"] % len(_PAIRS)]
+    state["rows"] += 1
+    vals = []
+    for i in range(k):
+        if i < 2:
+            vals.append(((pair[i] - 1) % b) + 1)
+        else:
+            vals.append(((state["rows"] * 3 + i * 2) % 9) + 1)   # 가중치·값
+    if k >= 2 and vals[0] == vals[1]:                # 자기 자신으로 가는 간선은 피한다
+        vals[1] = (vals[1] % b) + 1
+    if _ranged(names, hints):
+        lo, hi = min(vals[0], vals[1]), max(vals[0], vals[1])
+        vals[0], vals[1] = lo, hi
     return " ".join(str(v) for v in vals)
+
+
+def _subtracts(names, hints):
+    """두 크기 이름이 코드에서 서로 빼지는가 (range(n - m + 1) 같은 꼴)."""
+    a, b = names[0], names[1]
+    if not a or not b:
+        return False
+    ns = hints["nospace"]
+    return (a + "-" + b) in ns or (b + "-" + a) in ns
+
+
+def _fake_blob():
+    """sys.stdin.read() 처럼 통째로 읽는 코드에 줄 뭉치.
+
+    이 꼴은 읽고 나서 .split() 으로 잘라 쓰기 때문에 남는 숫자는 버려진다.
+    그래서 크기 한 줄 + 값 한 줄 뒤에 여유분을 넉넉히 붙여도 안전하다.
+    예전엔 여기서 아무것도 안 지어내 data[0] 부터 IndexError 로 터졌다."""
+    rows = ["5", "4 9 5 1 6"]
+    for r in range(1, 7):
+        rows.append(" ".join(str(((r * 7 + i * 5 + 3) % 9) + 1) for i in range(5)))
+    return "\n".join(rows) + "\n"
 
 
 class _AutoStdin:
     """입력이 떨어지면 지어내 주는 stdin. readline 은 개행을 붙여 돌려준다."""
 
-    def __init__(self, buf, synth):
+    def __init__(self, buf, synth, blob):
         self._buf = buf
         self._synth = synth
+        self._blob = blob
+        self._given = 0
 
     def readline(self, *a):
         line = self._buf.readline(*a)
         return line if line != "" else self._synth() + "\n"
 
     def read(self, *a):
-        return self._buf.read(*a)
+        # 통째로 읽는 코드(data = sys.stdin.read().split())는 여기로 온다.
+        # 빈 문자열을 그대로 주면 data[0] 부터 터진다.
+        got = self._buf.read(*a)
+        return got if got != '' else self._blob()
 
     def readlines(self, *a):
         return self._buf.readlines(*a)
@@ -339,7 +574,15 @@ class _AutoStdin:
         return self
 
     def __next__(self):
-        return self.readline()
+        # for line in sys.stdin: 은 끝이 있어야 멈춘다. 지어내기만 하면
+        # 영원히 돌아 20000 단계를 채우고 만다. 몇 줄만 주고 닫는다.
+        line = self._buf.readline()
+        if line != "":
+            return line
+        if self._given >= 6:
+            raise StopIteration
+        self._given += 1
+        return self._synth() + chr(10)
 
 
 def run(source, stdin_text="", end_line=0, auto_input=False):
@@ -366,14 +609,34 @@ def run(source, stdin_text="", end_line=0, auto_input=False):
         while f is not None and f.f_code.co_filename != FILENAME:
             f = f.f_back
         text = src_lines[f.f_lineno - 1] if (f and 0 < f.f_lineno <= len(src_lines)) else ""
-        got = _fake_line(text, fake_state, fake_state["count"])
+        # 이 줄을 몇 번째로 읽는가. 첫 번째는 크기, 두 번째부터는 데이터다.
+        # (크기는 한 번만 읽는다 — 같은 줄을 또 읽으면 그건 값이다)
+        key = f.f_lineno if f else 0
+        per = fake_state["per"]
+        rep = per.get(key, 0)
+        per[key] = rep + 1
+        got = _fake_line(text, fake_state, fake_state["count"], hints, rep)
         fake_state["count"] += 1
         made.append(got)
-        if len(made) > 400:
-            raise EOFError("지어낼 입력이 너무 많습니다. 입력 칸에 직접 넣어주세요.")
+        if rep + 1 > 12:
+            # while True: input() 처럼 끝을 모르고 읽는 코드. 한 줄에서만
+            # 예순 번을 읽으면 볼 것도 없이 길기만 하다. 열두 번에서 끊는다.
+            raise EOFError("입력이 끝났습니다. 더 필요하면 입력 칸에 직접 채워주세요.")
+        if len(made) > 60:
+            # 끝을 모르고 계속 읽는 코드(while True: input())가 여기 걸린다.
+            # try/except EOFError 로 끝내는 코드라면 이걸로 자연스럽게 빠져나간다.
+            raise EOFError("입력이 끝났습니다. 더 필요하면 입력 칸에 직접 채워주세요.")
         return got
 
-    fake_state = {"last_n": None, "bound": 5, "count": 0}
+    hints = _scan_hints(source) if auto_input else _scan_hints("")
+    fake_state = {"last_n": None, "bound": 5, "count": 0, "width": None,
+                  "words": 0, "per": {}, "rows": 0}
+
+    def _blob():
+        got = _fake_blob()
+        for row in got.rstrip(chr(10)).split(chr(10)):
+            made.append(row)
+        return got
 
     def _input(prompt=""):
         # 브라우저에는 진짜 stdin 이 없다. 입력 칸의 내용을 한 줄씩 떼어준다.
@@ -448,7 +711,7 @@ def run(source, stdin_text="", end_line=0, auto_input=False):
     # `input = sys.stdin.readline` 은 백준 풀이의 관용구다. 그 길로 들어오는
     # 읽기도 똑같이 지어내야 한다 — 안 그러면 그 코드들만 빈 문자열을 받아
     # 엉뚱한 데서(ValueError) 터진다.
-    sys.stdin = _AutoStdin(stdin, _synth) if auto_input else stdin
+    sys.stdin = _AutoStdin(stdin, _synth, _blob) if auto_input else stdin
     sys.settrace(tracer)
     try:
         exec(code, g)

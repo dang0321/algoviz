@@ -7,3 +7,6 @@ __pycache__/
 .idea/
 Thumbs.db
 desktop.ini
+
+# 로컬 미리보기 설정
+.claude/
