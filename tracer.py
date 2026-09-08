@@ -237,8 +237,14 @@ _NUM_WORD = re.compile(r"\b(int|float)\s*[(,]")
 _LIT_EQ = re.compile(r"""\b([A-Za-z_]\w*)(?:\[0\])?\s*==\s*(['"])([^'"]*)\2""")
 _NUM_EQ = re.compile(r"""\b([A-Za-z_]\w*)\s*==\s*(-?\d+)\b""")
 _RANGE1 = re.compile(r"""range\(\s*([A-Za-z_]\w*)""")
-_RANGE2 = re.compile(r"""range\([^,)]*,\s*([A-Za-z_]\w*)""")
+_RANGE2 = re.compile(r"""range\([^,()]*,\s*([A-Za-z_]\w*)[^,()]*\)""")
 _TIMES = re.compile(r"""\*\(?\s*([A-Za-z_]\w*)""")
+
+# 코드가 실제로 견주는 한 글자들. board[i][j] == '#' 처럼 왼쪽이 첨자라
+# 이름으로는 안 잡힌다. 이걸 알아야 지도를 그 코드의 글자로 지어낸다.
+_CHAR_EQ = re.compile(r"""==\s*(['"])(.)\1""")
+# a[i] == b[j] — 문자열 두 개를 자리마다 견주는 코드.
+_SUB_EQ = re.compile(r"""\b([A-Za-z_]\w*)\[[^\]]+\]\s*==\s*([A-Za-z_]\w*)\[""")
 
 # 여러 숫자를 반복해 읽는 줄은 대개 간선·좌표·물건이다. 아무 수나 주면
 # 늘 이웃끼리 이어진 한 줄짜리 그래프가 나온다. 미리 짜둔 이 쌍들은
@@ -335,7 +341,35 @@ def _scan_hints(source):
     grid2d = re.search(r"[A-Za-z_]\w*\[[^]]+\]\[[^]]+\]", nospace) is not None
     hunts = any(m in nospace for m in
                 (".find(", ".index(", ".count(", ".startswith(", ".endswith("))
-    twostr = (bare == 2) and (hunts or ("dp[" in nospace))
+    # a[i] == b[i] 로 자리마다 견주는 코드도 "문자열 두 개" 문제다.
+    # 이게 없으면 apple / banana 를 줘서 겹치는 글자가 하나도 없었다.
+    pairwise = False
+    for x, y in _SUB_EQ.findall(source):
+        if x != y:
+            pairwise = True
+    twostr = (bare == 2) and (hunts or pairwise or ("dp[" in nospace))
+
+    # 코드가 견주는 한 글자들. 지도를 이 글자로 지어내야 조건이 걸린다.
+    chars = []
+    for _q, c in _CHAR_EQ.findall(source):
+        if c not in chars:
+            chars.append(c)
+
+    # 갈림길이 있으면 정해진 낱말만 계속 주면 안 된다. else 쪽이 영영 안 돈다.
+    haselse = ("else" in nospace) or ("elif" in nospace)
+
+    # if n == 0: break — 끝내라는 신호다. 처음부터 주면 한 바퀴도 안 돌고 끝난다.
+    stopnum = set()
+    src_lines = source.split(chr(10))
+    for idx, line in enumerate(src_lines):
+        found = [n for n, _l in _NUM_EQ.findall(line)]
+        found += [n for n, _q, _w in _LIT_EQ.findall(line)]
+        if not found:
+            continue
+        tail = " ".join(src_lines[idx:idx + 3])
+        if ("break" in tail) or ("exit(" in tail):
+            for name in found:
+                stopnum.add(name)
 
     # 크기로 쓰이는 이름. range(n) 이나 [0] * n 의 자리에 오는 것들이다.
     # 이걸 알아야 "5 6" 같은 크기 줄과 간선 줄을 갈라낼 수 있다.
@@ -352,7 +386,8 @@ def _scan_hints(source):
             nums[name].append(int(lit))
 
     return {"ints": ints, "twostr": twostr, "nospace": nospace,
-            "grid2d": grid2d, "lits": lits, "sizes": sizes, "nums": nums}
+            "grid2d": grid2d, "lits": lits, "sizes": sizes, "nums": nums,
+            "chars": chars, "haselse": haselse, "stopnum": stopnum}
 
 
 def _ranged(names, hints):
@@ -366,13 +401,72 @@ def _ranged(names, hints):
     return (":" + names[1] + "]") in ns or ("range(" + names[0] + ",") in ns
 
 
+def _char_word(ch, count):
+    """코드가 견주는 글자들로 여섯 글자를 짓는다.
+
+    글자가 둘이면 짝이 맞게 짠다 — 괄호 검사 코드가 "맞다"와 "틀리다"를
+    둘 다 보여줄 수 있게, 줄마다 짝이 맞는 것과 안 맞는 것을 번갈아 낸다.
+    """
+    if len(ch) == 2:
+        a, b = ch[0], ch[1]
+        if count % 2 == 0:
+            return a + a + b + a + b + b          # 짝이 맞는 꼴
+        return a + b + b + a + a + b              # 짝이 어긋난 꼴
+    out = []
+    for i in range(6):
+        out.append(ch[(count + i) % len(ch)])
+    return "".join(out)
+
+
+def _grid_row(k, count, hints):
+    """지도 한 줄. 길이 k, 양 끝은 반드시 뚫어 두고 벽은 한 칸만 둔다.
+
+    벽을 많이 두면 BFS 가 못 지나가고, 하나도 안 두면 "벽을 센다"는 코드가
+    0 을 답으로 낸다. 한 칸만 두고 줄마다 자리를 옮기면 둘 다 산다.
+    글자는 **코드가 실제로 견주는 글자**를 쓴다. 지도를 . 과 # 으로 고정하면
+    g[i][j] == 'W' 같은 코드는 조건이 한 번도 안 걸린다.
+    """
+    ch = hints["chars"]
+    if ch and all(c.isdigit() for c in ch):
+        # 숫자를 글자로 읽는 지도. 1 이 길, 0 이 벽인 게 관례다.
+        road = "1" if "1" in ch else ch[0]
+        wall = "0" if "0" in ch else (ch[1] if len(ch) > 1 else "0")
+    else:
+        road = "."
+        wall = "#"
+        for c in ch:
+            if c != ".":
+                wall = c
+                break
+    gap = (count % max(1, k - 2)) + 1
+    out = []
+    for i in range(k):
+        out.append(wall if (0 < i < k - 1 and i == gap) else road)
+    return "".join(out)
+
+
 def _word_for(name, i, count, hints, rep):
     """이름 하나가 받을 값. 정해진 낱말 > 숫자 > 아무 낱말 순으로 고른다."""
     lit = hints["lits"].get(name)
     if lit:
-        return lit[rep % len(lit)]
+        # if line == "end": break — 끝내라는 신호다. 첫 줄에 주면 한 바퀴도 안 돈다.
+        if name in hints["stopnum"] and len(lit) == 1:
+            if rep < 5:
+                return _FAKE_WORDS[rep % len(_FAKE_WORDS)]
+            return lit[0]
+        if len(lit) > 1 or not hints["haselse"]:
+            return lit[rep % len(lit)]
+        # 견주는 낱말이 하나뿐인데 else 가 있으면, 늘 맞히면 else 쪽이 안 돈다.
+        # 한 번 걸러 안 맞는 낱말을 준다 (YES / yes 처럼 보기에도 자연스럽게).
+        if rep % 2 == 0:
+            return lit[0]
+        other = lit[0].lower()
+        if other == lit[0]:
+            other = lit[0].upper()
+        return other if other != lit[0] else _FAKE_WORDS[rep % len(_FAKE_WORDS)]
     if name in hints["ints"]:
-        return str(((count * 3 + i * 4) % 9) + 1)
+        # 3 을 곱하면 9 로 나눈 나머지가 세 개뿐이라 값이 금방 겹쳤다.
+        return str(((count * 5 + i * 4) % 9) + 1)
     return _FAKE_WORDS[(count + i) % len(_FAKE_WORDS)]
 
 
@@ -423,8 +517,10 @@ def _fake_line(text, state, count, hints, rep):
             return " ".join(_FAKE_WORDS[(count + i) % len(_FAKE_WORDS)] for i in range(k))
 
         if boxed:
-            k = _pick_len(state)
-            return " ".join(_FAKE_WORDS[(count + i) % len(_FAKE_WORDS)] for i in range(k))
+            # list(input().strip()) 은 한 줄을 **글자 하나씩** 쪼갠다.
+            # 낱말을 띄어 주면 공백까지 칸이 되어 지도가 뭉개졌다 (실제로 그랬다).
+            state["words"] += 1
+            return _grid_row(_pick_len(state), count, hints)
 
         # 낱말 한 개. 가로 크기를 이미 읽었다면 그건 낱말이 아니라 **지도 한 줄**이다.
         # (n, m 을 읽고 나서 board = [input() for _ in range(n)] 하는 그 꼴)
@@ -432,15 +528,20 @@ def _fake_line(text, state, count, hints, rep):
         if not isinstance(wide, int) and hints["grid2d"] and isinstance(state["last_n"], int):
             wide = state["last_n"]          # n 만 읽은 정사각 격자
         if isinstance(wide, int):
-            k = max(2, min(12, wide))
-            gap = (count % max(1, k - 2)) + 1
             state["words"] += 1
-            return "".join("." if (i == 0 or i == k - 1 or i == gap) else "#"
-                           for i in range(k))
+            return _grid_row(max(2, min(12, wide)), count, hints)
 
         if hints["twostr"] and state["words"] < 2:
             state["words"] += 1
             return _PAIR_TEXT if state["words"] == 1 else _PAIR_PAT
+
+        # 코드가 글자 두 가지 이상을 견주면(괄호 짝 맞추기가 대표) 그 글자로 짓는다.
+        # apple 을 주면 여는 괄호도 닫는 괄호도 없어 아무 일도 안 일어난다.
+        ch = hints["chars"]
+        named = names[0] if names else ""
+        if len(ch) >= 2 and named not in hints["lits"] and named not in hints["ints"]:
+            state["words"] += 1
+            return _char_word(ch, count)
 
         state["words"] += 1
         if names and names[0]:
@@ -468,7 +569,12 @@ def _fake_line(text, state, count, hints, rep):
         head = raw.lower()
         # 읽은 숫자가 곧바로 range() 로 들어가면 그건 "몇 번 반복하나"다.
         # for _ in range(int(input())): 가 그것이다. 크게 주면 같은 그림만 반복된다.
-        tc = head in _TC_NAMES or "range(int(" in "".join(t.split())
+        nl = "".join(t.split())
+        # for _ in range(1, int(input()) + 1): 처럼 1 부터 세는 꼴도 잡아야 한다.
+        # 이름이 tc 가 아니면(_ 이면) 예전엔 그냥 5 를 줘서 다섯 번 반복했다.
+        tc = (head in _TC_NAMES
+              or "range(int(" in nl
+              or (t.startswith("for ") and "range(" in nl and "input" in nl))
         if tc:
             state["last_n"] = 1
             state["bound"] = max(2, min(state["bound"], 5))
@@ -480,7 +586,11 @@ def _fake_line(text, state, count, hints, rep):
         lit = hints["nums"].get(raw)
         if rep > 0 or ("for " in t) or lit:
             b = state["bound"]
-            if lit and rep % 2 == 1:
+            # if n == 0: break 는 **끝내라**는 신호다. 두 번째에 바로 주면
+            # 한 바퀴 돌고 끝나 볼 것이 없다. 다섯 바퀴는 돌린 뒤에 준다.
+            stop = raw in hints["stopnum"]
+            due = rep >= 5 if stop else rep % 2 == 1
+            if lit and due:
                 return str(lit[(rep // 2) % len(lit)])
             # rep * 7 은 상한 5 에서 1,3,5,2,4 로 한 바퀴를 돈다 (겹치지 않는다).
             return str(((rep * 7) % b) + 1)

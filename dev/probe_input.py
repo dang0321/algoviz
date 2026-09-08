@@ -301,6 +301,217 @@ print(total, len(g), len(g[0]))
 """
 
 
+CASES["swea_inline_tc"] = """import sys
+input = sys.stdin.readline
+for tc in range(1, int(input()) + 1):
+    n = int(input())
+    arr = list(map(int, input().split()))
+    print('#' + str(tc), sum(arr))
+"""
+
+CASES["tree_edges"] = """n = int(input())
+adj = [[] for _ in range(n + 1)]
+for _ in range(n - 1):
+    a, b = map(int, input().split())
+    adj[a].append(b)
+    adj[b].append(a)
+print(adj)
+"""
+
+CASES["intervals"] = """n = int(input())
+meet = []
+for _ in range(n):
+    s, e = map(int, input().split())
+    meet.append((s, e))
+meet.sort(key=lambda x: (x[1], x[0]))
+cnt = 0
+end = 0
+for s, e in meet:
+    if s >= end:
+        cnt += 1
+        end = e
+print(cnt, meet)
+"""
+
+CASES["char_grid_list"] = """n, m = map(int, input().split())
+board = []
+for _ in range(n):
+    board.append(list(input().strip()))
+cnt = 0
+for i in range(n):
+    for j in range(m):
+        if board[i][j] == '#':
+            cnt += 1
+print(cnt, board)
+"""
+
+CASES["char_grid_wl"] = """n = int(input())
+g = [list(input().strip()) for _ in range(n)]
+w = 0
+for i in range(n):
+    for j in range(n):
+        if g[i][j] == 'W':
+            w += 1
+print(w, g)
+"""
+
+CASES["while_zero"] = """total = 0
+while True:
+    n = int(input())
+    if n == 0:
+        break
+    total += n
+print(total)
+"""
+
+CASES["binsearch"] = """n = int(input())
+cards = list(map(int, input().split()))
+cards.sort()
+m = int(input())
+want = list(map(int, input().split()))
+out = []
+for x in want:
+    lo, hi = 0, len(cards) - 1
+    found = 0
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        if cards[mid] == x:
+            found = 1
+            break
+        if cards[mid] < x:
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    out.append(found)
+print(out)
+"""
+
+CASES["coins"] = """n, k = map(int, input().split())
+coins = [int(input()) for _ in range(n)]
+coins.sort(reverse=True)
+cnt = 0
+for c in coins:
+    if k <= 0:
+        break
+    cnt += k // c
+    k %= c
+print(cnt, coins)
+"""
+
+CASES["name_score"] = """n = int(input())
+rows = []
+for _ in range(n):
+    name, score = input().split()
+    rows.append((int(score), name))
+rows.sort(reverse=True)
+print(rows)
+"""
+
+CASES["two_matrices"] = """n, m = map(int, input().split())
+a = [list(map(int, input().split())) for _ in range(n)]
+b = [list(map(int, input().split())) for _ in range(n)]
+c = [[a[i][j] + b[i][j] for j in range(m)] for i in range(n)]
+for row in c:
+    print(row)
+"""
+
+CASES["yn_flag"] = """n = int(input())
+ans = []
+for _ in range(n):
+    s = input().strip()
+    if s == 'YES':
+        ans.append(1)
+    else:
+        ans.append(0)
+print(ans)
+"""
+
+CASES["dict_pairs"] = """n = int(input())
+book = {}
+for _ in range(n):
+    key, val = input().split()
+    book[key] = int(val)
+print(book, sorted(book.items()))
+"""
+
+CASES["deque_cmds"] = """import sys
+from collections import deque
+input = sys.stdin.readline
+n = int(input())
+dq = deque()
+for _ in range(n):
+    cmd = input().split()
+    if cmd[0] == 'push_back':
+        dq.append(int(cmd[1]))
+    elif cmd[0] == 'push_front':
+        dq.appendleft(int(cmd[1]))
+    elif cmd[0] == 'pop_front':
+        if dq:
+            dq.popleft()
+print(list(dq))
+"""
+
+CASES["str_pair_cmp"] = """a = input().strip()
+b = input().strip()
+same = 0
+for i in range(min(len(a), len(b))):
+    if a[i] == b[i]:
+        same += 1
+print(same, a, b)
+"""
+
+
+CASES["brackets"] = """s = input().strip()
+stack = []
+ok = True
+for c in s:
+    if c == '(':
+        stack.append(c)
+    elif c == ')':
+        if not stack:
+            ok = False
+            break
+        stack.pop()
+print(ok and not stack, s)
+"""
+
+CASES["str_terminator"] = """total = 0
+while True:
+    line = input().strip()
+    if line == 'end':
+        break
+    total += len(line)
+print(total)
+"""
+
+CASES["triangle_dp"] = """n = int(input())
+tri = [list(map(int, input().split())) for _ in range(n)]
+for i in range(1, n):
+    for j in range(i + 1):
+        left = tri[i-1][j-1] if j > 0 else 0
+        right = tri[i-1][j] if j <= i - 1 else 0
+        tri[i][j] += max(left, right)
+print(max(tri[n-1]))
+"""
+
+CASES["three_words"] = """a, b, c = input().split()
+print(a, b, c, len(a + b + c))
+"""
+
+CASES["char_cmd_loop"] = """import sys
+input = sys.stdin.readline
+n = int(input())
+out = []
+for _ in range(n):
+    c = input().strip()
+    if c == 'A':
+        out.append(1)
+    elif c == 'B':
+        out.append(2)
+print(out)
+"""
+
+
 FAILED = []
 
 
