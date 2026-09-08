@@ -195,7 +195,154 @@ def _locals_of(frame, objs):
     return out, deques
 
 
-def run(source, stdin_text="", end_line=0):
+# ---------- 입력 없이 구조만 보기 ----------
+#
+# 백준·SWEA 풀이는 대부분 input() 으로 시작한다. 입력 칸이 비어 있으면
+# 첫 줄에서 멈춰서 **그림이 아예 안 나온다.**
+# "테스트케이스를 찾아 오기 전에 구조부터 보고 싶다"는 게 흔한 요구다.
+#
+# 그래서 입력이 떨어지면 지어낸다. 다만 아무 값이나 넣으면 코드가 다른 데서
+# 터지므로, **입력을 읽은 그 줄을 보고** 어떤 모양을 원하는지 맞춘다.
+#
+#     n = int(input())                      -> 숫자 하나
+#     n, m = map(int, input().split())      -> 숫자 둘
+#     arr = list(map(int, input().split())) -> 숫자 여러 개
+#     row = list(map(int, input().strip())) -> 숫자를 붙여 쓴 한 줄 (미로 지도)
+#     s = input()                           -> 글자
+#
+# 몇 개를 줄지는 **직전에 지어낸 숫자**를 쓴다. n 을 읽고 다음 줄에서 길이 n 짜리
+# 배열을 읽는 게 이 바닥의 관례라, 그것만으로 대부분 맞는다.
+#
+# 지어낸 줄은 전부 돌려보내서 화면의 입력 칸에 그대로 채운다.
+# **무엇을 먹였는지 안 보이면 그건 거짓말하는 그림이다.**
+
+_FAKE_WORDS = ["apple", "banana", "cherry", "date", "elder", "fig", "grape", "kiwi"]
+
+# 테스트케이스 개수로 보이는 이름. 크게 주면 같은 그림을 열 번 반복해서 보게 된다.
+_TC_NAMES = ("t", "tc", "test", "tests", "testcase", "test_case", "case", "cases")
+
+
+def _targets(t):
+    """`a, b = map(...)` 처럼 왼쪽에서 몇 개를 받는지 센다."""
+    cut = -1
+    depth = 0
+    for i, c in enumerate(t):
+        if c in "([{":
+            depth += 1
+        elif c in ")]}":
+            depth -= 1
+        elif c == "=" and depth == 0:
+            if i + 1 < len(t) and t[i + 1] == "=":
+                break
+            if i > 0 and t[i - 1] in "=!<>+-*/%":
+                continue
+            cut = i
+            break
+    if cut < 0:
+        return 1
+    head = t[:cut]
+    return max(1, len([x for x in head.split(",") if x.strip()]))
+
+
+def _pick_len(last_n):
+    n = last_n if isinstance(last_n, int) else 5
+    return max(2, min(8, n))
+
+
+def _wants_number(t):
+    return ("int(" in t) or ("map(int" in t) or ("int," in t) or ("float(" in t)
+
+
+def _fake_line(text, state, count):
+    """이 줄이 원하는 모양을 짐작해 한 줄을 지어낸다. state 를 직접 고친다.
+
+    state 가 기억하는 두 가지.
+      last_n  직전에 지어낸 숫자. 다음 줄이 "몇 개짜리인가"에 쓴다
+      bound   인덱스처럼 쓰일 숫자의 상한
+
+    bound 가 필요한 이유: `n, m = map(int, input().split())` 다음에
+    `a, b = map(int, input().split())` 로 간선을 읽는 코드가 흔한데, 거기서
+    n 보다 큰 번호를 주면 graph[a] 가 IndexError 로 터진다. 실제로 터졌다.
+
+    그리고 **맨 처음 읽는 여러 숫자는 크기**(n, m)다. 여기에 상한을 걸면
+    n = 1 짜리 배열이 나와서 볼 게 없어진다. 첫 줄만 넉넉히 준다.
+    """
+    t = text.strip()
+    has_split = ".split()" in t
+    boxed = ("list(" in t) or ("sorted(" in t) or ("[*" in t) or ("*," in t)
+    first = state["last_n"] is None
+
+    if not _wants_number(t):
+        if has_split or boxed:
+            k = _pick_len(state["last_n"])
+            return " ".join(_FAKE_WORDS[(count + i) % len(_FAKE_WORDS)] for i in range(k))
+        return _FAKE_WORDS[count % len(_FAKE_WORDS)]
+
+    # 숫자를 붙여 쓴 한 줄. `list(map(int, input().strip()))` 은 미로 지도가 대표라
+    # 길이 막히지 않게 1 을 많이 섞고 양 끝은 반드시 1 로 둔다 (안 그러면 못 도착한다).
+    if not has_split and boxed:
+        k = _pick_len(state["last_n"])
+        # 줄마다 벽 자리를 옮겨 놓는다. 모든 줄이 똑같으면 지도가 아니라 줄무늬다.
+        gap = (count % max(1, k - 2)) + 1
+        return "".join("0" if (0 < i < k - 1 and i == gap) else "1" for i in range(k))
+
+    if boxed:
+        # 데이터 값이라 인덱스 상한을 안 지켜도 된다. 값이 다양해야 그림이 산다.
+        k = _pick_len(state["last_n"])
+        return " ".join(str((i * 5 + 3) % 9 + 1) for i in range(k))
+
+    k = _targets(t) if has_split else 1
+    if k == 1:
+        head = t[:t.find("=")].strip().lower() if "=" in t else ""
+        if head in _TC_NAMES:
+            state["last_n"] = 1
+            state["bound"] = max(2, min(state["bound"], 5))
+            return "1"
+        state["last_n"] = 5
+        state["bound"] = max(2, min(state["bound"], 5))
+        return "5"
+
+    if first:
+        vals = [5, 4, 6, 3, 7][:k]                       # 첫 줄은 크기다. 넉넉히.
+    else:
+        # 줄마다 값을 옮긴다. 안 그러면 간선이 전부 "1 1" 이라 그래프가 점 하나가 된다.
+        b = state["bound"]
+        vals = [((count * 3 + i * 5) % b) + 1 for i in range(k)]
+        if k >= 2 and vals[0] == vals[1]:                # 자기 자신으로 가는 간선은 피한다
+            vals[1] = (vals[1] % b) + 1
+    state["last_n"] = vals[-1]
+    # **상한은 크기를 읽은 줄에서만 줄인다.** 간선 줄에서도 줄이면 상한이 계속
+    # 작아져서, 나중엔 값이 두 가지뿐이라 그래프가 점 두 개가 된다 (실제로 그랬다).
+    if first:
+        state["bound"] = max(2, min([state["bound"]] + vals))
+    return " ".join(str(v) for v in vals)
+
+
+class _AutoStdin:
+    """입력이 떨어지면 지어내 주는 stdin. readline 은 개행을 붙여 돌려준다."""
+
+    def __init__(self, buf, synth):
+        self._buf = buf
+        self._synth = synth
+
+    def readline(self, *a):
+        line = self._buf.readline(*a)
+        return line if line != "" else self._synth() + "\n"
+
+    def read(self, *a):
+        return self._buf.read(*a)
+
+    def readlines(self, *a):
+        return self._buf.readlines(*a)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.readline()
+
+
+def run(source, stdin_text="", end_line=0, auto_input=False):
     source, used_end = _truncate(source, end_line)
     if not source.strip():
         return json.dumps({
@@ -204,20 +351,40 @@ def run(source, stdin_text="", end_line=0):
         })
 
     _reset_objs()
+    src_lines = source.split("\n")
     timeline = []
     stdout = io.StringIO()
     stdin = io.StringIO(stdin_text)
     error = None
     truncated = False
 
+    made = []                 # 지어낸 줄. 화면의 입력 칸에 그대로 채워 보여준다
+
+    def _synth():
+        """입력이 떨어졌을 때, 그걸 읽은 줄을 보고 한 줄 지어낸다."""
+        f = sys._getframe(1)
+        while f is not None and f.f_code.co_filename != FILENAME:
+            f = f.f_back
+        text = src_lines[f.f_lineno - 1] if (f and 0 < f.f_lineno <= len(src_lines)) else ""
+        got = _fake_line(text, fake_state, fake_state["count"])
+        fake_state["count"] += 1
+        made.append(got)
+        if len(made) > 400:
+            raise EOFError("지어낼 입력이 너무 많습니다. 입력 칸에 직접 넣어주세요.")
+        return got
+
+    fake_state = {"last_n": None, "bound": 5, "count": 0}
+
     def _input(prompt=""):
         # 브라우저에는 진짜 stdin 이 없다. 입력 칸의 내용을 한 줄씩 떼어준다.
         if prompt:
             stdout.write(str(prompt))
         line = stdin.readline()
-        if line == "":
+        if line != "":
+            return line.rstrip("\n")
+        if not auto_input:
             raise EOFError("입력이 부족합니다. 왼쪽 아래 '입력' 칸에 줄을 더 채워주세요.")
-        return line.rstrip("\n")
+        return _synth()
 
     def _depth(frame):
         """이 프레임이 사용자 함수 안에서 몇 겹째인가. 모듈 최상단이 0."""
@@ -278,7 +445,10 @@ def run(source, stdin_text="", end_line=0):
     g = {"__name__": "__main__", "input": _input}
     real_stdin = sys.stdin
     sys.stdout = stdout
-    sys.stdin = stdin
+    # `input = sys.stdin.readline` 은 백준 풀이의 관용구다. 그 길로 들어오는
+    # 읽기도 똑같이 지어내야 한다 — 안 그러면 그 코드들만 빈 문자열을 받아
+    # 엉뚱한 데서(ValueError) 터진다.
+    sys.stdin = _AutoStdin(stdin, _synth) if auto_input else stdin
     sys.settrace(tracer)
     try:
         exec(code, g)
@@ -303,4 +473,7 @@ def run(source, stdin_text="", end_line=0):
         "truncated": truncated,
         "endLine": used_end,
         "error": error,
+        # 지어낸 입력은 반드시 돌려보낸다. 화면의 입력 칸에 그대로 채워야
+        # 사용자가 "무엇을 먹였는지" 보고 고칠 수 있다.
+        "made": made,
     })

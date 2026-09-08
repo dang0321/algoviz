@@ -900,3 +900,20 @@ main {
   color: var(--dim);
   font-weight: 400;
 }
+
+/* 입력 칸 머리의 보조 버튼. 실행 버튼과 헷갈리지 않게 테두리만 있는 모양으로. */
+.io-head { display: flex; align-items: center; gap: 8px; }
+button.ghost {
+  margin-left: auto;
+  background: transparent;
+  color: var(--dim);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+button.ghost:hover { color: var(--text); border-color: var(--bar); }
+/* 콘솔 안에서 누를 수 있는 말 */
+.linky { color: var(--accent); cursor: pointer; text-decoration: underline; }

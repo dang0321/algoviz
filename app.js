@@ -52,7 +52,7 @@ function setStopLine(line) {
   stopLine = (line === stopLine) ? 0 : line;
   paintStopLine();
   saveDraft();
-  if (!runBtn.disabled) doRun();
+  if (!runBtn.disabled) doRun(false);
 }
 
 function paintStopLine() {
@@ -117,7 +117,13 @@ async function boot() {
 }
 
 /* ---------- 실행 ---------- */
-function doRun() {
+/* 입력을 지어내서 구조만 보는 모드.
+ *
+ * 백준·SWEA 풀이는 첫 줄부터 input() 이라, 테스트케이스가 없으면 그림이
+ * 아예 안 나온다. "케이스 찾아오기 전에 구조부터 보고 싶다"는 요구가 흔하다.
+ * 지어낸 입력은 **입력 칸에 그대로 채워 보여준다** — 무엇을 먹였는지 안 보이면
+ * 그건 거짓말하는 그림이다. 채워 놓으면 고쳐서 다시 돌릴 수도 있다. */
+function doRun(auto) {
   if (!pyodide) return;
   stop();
   consoleEl.innerHTML = "";
@@ -128,7 +134,8 @@ function doRun() {
     pyodide.globals.set("__src", src);
     pyodide.globals.set("__stdin", $("stdin").value);
     pyodide.globals.set("__end", stopLine);
-    raw = pyodide.runPython("run(__src, __stdin, __end)");
+    pyodide.globals.set("__auto", !!auto);
+    raw = pyodide.runPython("run(__src, __stdin, __end, __auto)");
   } catch (e) {
     log("추적기 자체가 터졌습니다: " + e.message, "err");
     return;
@@ -136,9 +143,34 @@ function doRun() {
 
   run = JSON.parse(raw);
 
+  // 지어낸 줄이 있으면 입력 칸에 채워 넣는다. 이제 이 칸이 사실이다.
+  if (run.made && run.made.length) {
+    const before = $("stdin").value.replace(/\s*$/, "");
+    const NL = "\n";
+    $("stdin").value = (before ? before + NL : "") + run.made.join(NL) + NL;
+    saveDraft();
+    log("입력 " + run.made.length + "줄을 지어내 넣었습니다. 입력 칸에서 고쳐 다시 실행할 수 있습니다.", "note");
+  }
+
   if (run.error) {
     const at = run.error.line ? " (" + run.error.line + "번째 줄)" : "";
     log(run.error.type + ": " + run.error.msg + at, "err");
+    // 입력이 없어서 멈춘 거라면, 길이 있다는 걸 그 자리에서 알려준다.
+    // 도움말은 막힌 순간에 보여야 읽는다.
+    //
+    // 오류 종류로 가리면 안 된다. `input = sys.stdin.readline` 을 쓰는 코드는
+    // 입력이 떨어져도 EOFError 가 아니라 빈 문자열을 받아 ValueError 로 터진다.
+    // 진짜 신호는 "입력을 읽는 코드인데 입력 칸이 비어 있다" 는 것이다.
+    const needsInput = /input\s*\(|stdin/.test(src);
+    if (!auto && needsInput && !$("stdin").value.trim()) {
+      const d = document.createElement("div");
+      d.className = "note";
+      d.innerHTML = '입력 없이 구조만 보려면 ' +
+        '<b class="linky" id="tryAuto">샘플 입력으로 실행</b> 을 누르세요.';
+      consoleEl.appendChild(d);
+      const t = document.getElementById("tryAuto");
+      if (t) t.onclick = () => doRun(true);
+    }
   }
   if (run.truncated) {
     log("스텝이 너무 많아 앞부분만 기록했습니다. 무한루프거나 입력이 큽니다.", "note");
@@ -242,7 +274,8 @@ function stop() {
   timer = null;
 }
 
-runBtn.onclick = doRun;
+runBtn.onclick = () => doRun(false);
+$("autoInput").onclick = () => doRun(true);
 playBtn.onclick = () => (playing ? stop() : play());
 $("stepFwd").onclick = () => { stop(); seek(idx + 1); };
 $("stepBack").onclick = () => { stop(); seek(idx - 1); };
@@ -307,7 +340,7 @@ $("preset").onchange = (e) => {
   syncGutter();
   e.target.value = "";
   saveDraft();
-  if (!runBtn.disabled) doRun();
+  if (!runBtn.disabled) doRun(false);
 };
 
 if (!loadDraft()) codeEl.value = SAMPLES.bubble;

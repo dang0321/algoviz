@@ -69,9 +69,11 @@ window.SWEEP = (SET) => {
     });
     if (skew > 2) w.push("세로어긋남" + skew.toFixed(0) + "px");
     // 설명 띠(sticky)가 첫 블록 제목을 덮으면 안 된다. 실제로 덮고 있었다.
+    // 단 **맨 위로 올라와 있을 때만** 본다. 스크롤을 내리면 sticky 띠가 내용을
+    // 덮는 건 당연한 일이라, 그걸 흠으로 세면 자동 스크롤이 될 때마다 거짓 경보가 뜬다.
     const whatEl = stage.querySelector(".what");
     const t0 = stage.querySelector(".viz-title");
-    if (whatEl && t0 && stage.clientWidth >= 420) {
+    if (whatEl && t0 && stage.clientWidth >= 420 && stage.scrollTop === 0) {
       const wb = whatEl.getBoundingClientRect(), tb = t0.getBoundingClientRect();
       if (tb.top < wb.bottom - 1 && tb.bottom > wb.top + 1) w.push("제목가림");
     }
