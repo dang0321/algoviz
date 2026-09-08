@@ -69,24 +69,49 @@ const VizUtil = (() => {
       for (const n of best.nodes) nodes.add(n);
       for (const e of best.edges) edges.push(e);
       weights = best.weights;
-    } else if (Array.isArray(v) && v.length >= 3 &&
-               v.every((r) => Array.isArray(r) && r.every(isNum))) {
+    } else if (Array.isArray(v) && v.length >= 3 && v.every((r) => Array.isArray(r))) {
       if (new Set(v.map((r) => r.length)).size < 2) return null;   // 균일하면 표
-      // 인접 리스트의 값은 **그 리스트의 인덱스**여야 한다. 딕셔너리 쪽에서
-      // "키 집합에 있는가"로 가리는 것과 같은 조건이다.
-      // 이게 없으면 기수 정렬의 bucket = [[170, 90], [45], ...] 이 그래프가 된다
-      // (170번 노드가 생긴다).
-      let inRange = 0, outRange = 0;
-      for (const row of v) for (const to of row) {
-        if (Number.isInteger(to) && to >= 0 && to < v.length) inRange++; else outRange++;
+      // 이웃을 어떻게 읽을지 딕셔너리 쪽과 똑같이 세 가지로 시도한다.
+      //   [2, 3]          숫자가 곧 이웃
+      //   [(2, 5), ...]   쌍의 앞이 이웃, 뒤가 가중치
+      //   [(5, 2), ...]   쌍의 앞이 가중치, 뒤가 이웃
+      // 예전엔 숫자만 받아서, adj[a].append((b, w)) 로 만든 가중치 그래프가
+      // 통째로 안 보였다 — 다익스트라·프림이 전부 그 꼴이다.
+      const pair2 = (x) => Array.isArray(x) && x.length === 2 && isNum(x[0]) && isNum(x[1]);
+      const inIdx = (x) => Number.isInteger(x) && x >= 0 && x < v.length;
+      const modes = [
+        (x) => (isNum(x) ? { to: x } : null),
+        (x) => (pair2(x) ? { to: x[0], w: x[1] } : null),
+        (x) => (pair2(x) ? { to: x[1], w: x[0] } : null),
+      ];
+      let best = null;
+      for (const pick of modes) {
+        let inRange = 0, outRange = 0, broken = false;
+        const es = [], ws = {};
+        for (let i = 0; i < v.length && !broken; i++) {
+          for (const x of v[i]) {
+            const got = pick(x);
+            if (!got) { broken = true; break; }
+            // 인접 리스트의 값은 **그 리스트의 인덱스**여야 한다. 이게 없으면
+            // 기수 정렬의 bucket = [[170, 90], [45], ...] 이 그래프가 된다.
+            if (inIdx(got.to)) inRange++; else outRange++;
+            es.push([i, got.to]);
+            if (isNum(got.w)) ws[edgeKey(i, got.to)] = got.w;
+          }
+        }
+        if (broken) continue;
+        // 간선 서넛은 있어야 그래프다. bucket 이 어쩌다 [[2], [], ...] 가 된
+        // 순간에 "노드 10개 간선 1개 그래프"로 잡혔다.
+        if ((!loose && inRange < 3) || !inRange || outRange > inRange * 0.1) continue;
+        const score = inRange - outRange;
+        if (!best || score > best.score) best = { es, ws, score };
       }
-      // 간선 서넛은 있어야 그래프다. 기수 정렬의 bucket 이 어쩌다
-      // [[2], [], [], ...] 가 된 순간에 "노드 10개 간선 1개 그래프"로 잡혔다.
-      if ((!loose && inRange < 3) || !inRange || outRange > inRange * 0.1) return null;
-      for (let i = 0; i < v.length; i++) {
-        nodes.add(i);
-        for (const to of v[i]) { nodes.add(to); edges.push([i, to]); }
-      }
+      if (!best) return null;
+      for (let i = 0; i < v.length; i++) nodes.add(i);
+      for (const e of best.es) { nodes.add(e[1]); edges.push(e); }
+      // 가중치가 하나도 없으면 null 로 둔다. 빈 객체를 넘기면 그리는 쪽이
+      // "가중치 있는 그래프"로 보고 빈 자리를 만든다.
+      weights = Object.keys(best.ws).length ? best.ws : null;
     } else {
       return null;
     }

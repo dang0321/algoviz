@@ -197,6 +197,7 @@ const VizRender = (() => {
       case "records":   return "<b>" + b.name + "</b>" + note +
                                tag(b.rows + "줄 · " + b.cols + "칸짜리 묶음");
       case "sequence":  return "<b>" + b.name + "</b>" + note + tag("나온 순서");
+      case "pairs":     return "<b>" + b.name + "</b>" + note + tag("쌍 " + b.rows + "개");
       case "memogrid":  return "<b>" + b.name + "</b>" + note +
                                tag("메모 표 " + b.rows + "x" + b.cols + " · 키 (i, j)");
       case "setblock":  return "<b>" + b.name + "</b>" + note + tag("집합");
@@ -334,6 +335,14 @@ const VizRender = (() => {
         nodes.sequences[b.name] = { block, row, len: -1, cells: [] };
         return;
       }
+      case "pairs": {
+        // 쌍이 쌓이는 자리. 값의 크기가 아니라 "무엇이 언제 들어왔나"가 전부다.
+        const head2 = el("div", "cont-head", block);
+        head2.textContent = "왼쪽부터 쌓인 차례";
+        const row2 = el("div", "cont-row", block);
+        nodes.pairs[b.name] = { block, row: row2, len: -1, cells: [] };
+        return;
+      }
       case "setblock": {
         const row = el("div", "set-row", block);
         nodes.sets[b.name] = { block, row, seen: new Set() };
@@ -419,7 +428,7 @@ const VizRender = (() => {
     if (root !== stageEl) watchScroll(stageEl);
     root = stageEl;
     root.innerHTML = "";
-    nodes = { callTree: null, scatters: {}, records: {}, sequences: {}, arrays: {}, grids: {}, ranges: {}, graphs: {}, chars: {}, forests: {}, heaps: {}, objects: null, containers: {}, intervals: {}, trie: null,
+    nodes = { callTree: null, scatters: {}, records: {}, sequences: {}, pairs: {}, arrays: {}, grids: {}, ranges: {}, graphs: {}, chars: {}, forests: {}, heaps: {}, objects: null, containers: {}, intervals: {}, trie: null,
       flags: {}, counts: {}, memoGrids: {}, pairHeaps: {}, sets: {}, charGrids: {}, segtrees: {}, series: [], stack: null };
 
     // blocks 는 "많이 변한 순"이라, 화면 맨 위에 그 코드의 주인공이 온다.
@@ -1167,6 +1176,9 @@ const VizRender = (() => {
   function refreshScatters(V, P, frame, prev, idx) {
       for (const sc of (plan.scatters || [])) {
         const n = nodes.scatters[sc.name];
+        // 다른 그림이 같은 이름을 가져가 블록이 안 붙었을 수 있다.
+        // 없는 걸 만지면 이 프레임부터 재생이 통째로 멈춘다.
+        if (!n) continue;
         const cur = V[sc.name];
         if (!isNumGrid(cur) || !cur.length || cur[0].length !== 2) { gone(n.block); continue; }
         here(n.block);
@@ -1250,6 +1262,31 @@ const VizRender = (() => {
           n.cells[i].classList.toggle("head", before >= 0 && i >= before);
         }
       }
+  }
+
+  function refreshPairs(V, P, frame, prev, idx) {
+    for (const pl of (plan.pairLists || [])) {
+      const n = nodes.pairs[pl.name];
+      if (!n) continue;
+      const cur = V[pl.name];
+      if (!Array.isArray(cur)) { gone(n.block); continue; }
+      here(n.block);
+      // 길이가 그대로면 칸을 다시 만들지 않는다. 만들면 트랜지션이 죽는다.
+      if (cur.length !== n.len) {
+        n.row.innerHTML = "";
+        n.cells = [];
+        for (let i = 0; i < cur.length; i++) n.cells.push(el("div", "cont-cell", n.row));
+        n.len = cur.length;
+        if (!cur.length) el("div", "cont-empty", n.row).textContent = "아직 없음";
+      }
+      const before = Array.isArray(P[pl.name]) ? P[pl.name].length : -1;
+      for (let i = 0; i < cur.length; i++) {
+        const p2 = cur[i];
+        n.cells[i].textContent = Array.isArray(p2)
+          ? "(" + fmt(p2[0]) + ", " + fmt(p2[1]) + ")" : fmt(p2);
+        n.cells[i].classList.toggle("head", before >= 0 && i >= before);
+      }
+    }
   }
 
   function refreshSets(V, P, frame, prev, idx) {
@@ -1711,6 +1748,7 @@ const VizRender = (() => {
     refreshScatters,
     refreshRecords,
     refreshSequences,
+    refreshPairs,
     refreshSets,
     refreshIntervals,
     refreshContainers,

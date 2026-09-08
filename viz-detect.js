@@ -546,6 +546,11 @@ const VizDetect = (() => {
       b.note = notes[b.name] || notes[b.name.replace(/ 연결$/, "")] || undefined;
     }
 
+    // 아무 그림도 못 받은 쌍 목록을 마지막에 줍는다 (위 findPairLists 주석 참고).
+    const drawnAll = new Set(blocks.map((b) => b.name));
+    const pairLists = findPairLists(timeline, seen, drawnAll, claimed);
+    for (const x of pairLists) blocks.push(x);
+
     const RANK = { objects: 0, stack: 0, graph: 0, trie: 0, series: 2 };
     for (const b of blocks) {
       if (b.rank === undefined) {
@@ -555,8 +560,13 @@ const VizDetect = (() => {
     }
     blocks.sort((a, b) => a.rank - b.rank || b.changes - a.changes);
 
-    return { arrays, grids, chars, forests, heaps, objects, containers, intervals, tries,
-             flags, counts, memoGrids, pairHeaps, scatters, records, sequences, sets, charGrids, segtrees, bitmasks, ranges, source,
+    // 산점도로 뽑혔다가 나중에 다른 그림(간선 그래프)에 이름을 뺏긴 것은
+    // 블록이 안 붙는다. 목록에 남겨두면 그리는 쪽이 없는 블록을 찾다 멈춘다.
+    const liveNames = new Set(blocks.map((b) => b.name));
+    const liveScatters = scatters.filter((x) => liveNames.has(x.name));
+
+    return { arrays, grids, chars, forests, heaps, objects, containers, intervals, tries, pairLists,
+             flags, counts, memoGrids, pairHeaps, scatters: liveScatters, records, sequences, sets, charGrids, segtrees, bitmasks, ranges, source,
              sections: findSections(source),
              branches: branchOutcomes(timeline, source),
              pointerOf, spanOf, graphs, series, blocks, pointers, scalars,
@@ -844,7 +854,12 @@ const VizDetect = (() => {
       if (taken.has(k) || !st.grid) continue;
       if (st.gridColSet.size !== 1 || !st.gridColSet.has(2)) continue;
       const byIndex = flat.includes(k + "[") && flat.includes("][0]") && flat.includes("][1]");
-      const byUnpack = new RegExp("for\w+,\w+in" + k + "\b").test(flat);
+      // 역슬래시를 문자열 안에 쓰면 안 된다. \w 는 그냥 w 가 되고 \b 는
+      // 백스페이스 문자(0x08)가 되어, 이 검사는 여태 한 번도 안 맞았다.
+      // (그 바람에 for x, y in pts 꼴 좌표가 통째로 안 보였다)
+      const word = "[A-Za-z0-9_]";
+      const byUnpack = new RegExp("for" + word + "+," + word + "+in" + k +
+                                  "[^A-Za-z0-9_]").test(flat + " ");
       if (!byIndex && !byUnpack) continue;
 
       let rows = 0, xlo = Infinity, xhi = -Infinity, ylo = Infinity, yhi = -Infinity;
@@ -882,6 +897,46 @@ const VizDetect = (() => {
    * 숫자만 든 튜플 리스트는 이미 다른 그림(격자·구간·산점도)이 맡으므로
    * **한 열이라도 숫자가 아닐 때만** 여기서 그린다. */
   const REC_ROWS = 40;
+  const PAIR_ROWS = 24;
+
+  /* ---------- 쌍 목록 (마지막에 줍는다) ----------
+   * 하노이의 moves = [(1,3),(1,2), ...], 조합의 result = [(1,2),(1,3), ...] 처럼
+   * **답이 쌓이는 자리**가 여태 통째로 안 보였다. 앞선 검출기들이 저마다의
+   * 이유로 지나친 것들이다 — 구간 검출이 이름을 먼저 가져갔다가, "값이 전부
+   * 그래프 노드면 구간이 아니다" 규칙에 걸려 그 블록이 지워지는 식이다.
+   *
+   * 그래서 **아무 그림도 못 받은 것만** 마지막에 줍는다. 이렇게 하면 다른
+   * 그림을 뺏을 일이 없고, 검출기 사이 순서를 건드리지 않아도 된다. */
+  function findPairLists(timeline, seen, drawn, claimed) {
+    const out = [];
+    for (const k of Object.keys(seen)) {
+      if (drawn.has(k) || claimed.has(k)) continue;
+      let ok = true, frames = 0, rows = 0, changed = false, prev = null;
+      let lo = Infinity, hi = -Infinity;
+      for (const f of timeline) {
+        const v = f.vars[k];
+        if (v === undefined) continue;
+        if (!Array.isArray(v)) { ok = false; break; }
+        for (const r of v) {
+          if (!Array.isArray(r) || r.length !== 2 || !r.every(isNum)) { ok = false; break; }
+          for (const x of r) { lo = Math.min(lo, x); hi = Math.max(hi, x); }
+        }
+        if (!ok) break;
+        frames++;
+        rows = Math.max(rows, v.length);
+        const now = JSON.stringify(v);
+        if (prev !== null && prev !== now) changed = true;
+        prev = now;
+      }
+      if (!ok || frames < 2 || rows < 2 || rows > PAIR_ROWS) continue;
+      // 방향 표 (((1,0),(0,1),(-1,0),(0,-1)))는 한 번도 안 변하는 상수다.
+      // 칩으로 늘어놓아 봐야 재생 내내 가만히 있으면서 자리만 먹는다.
+      if (!changed && rows <= 8 && lo >= -1 && hi <= 1) continue;
+      out.push({ kind: "pairs", name: k, rows, changes: seen[k].changes });
+    }
+    return out;
+  }
+
 
   function findRecords(timeline, seen, taken) {
     const out = [];
