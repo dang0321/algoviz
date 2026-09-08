@@ -74,7 +74,10 @@ main {
 .editor-wrap {
   flex: 1;
   display: flex;
-  min-height: 0;
+  /* 코드 창의 바닥. 창이 줄면 브라우저는 줄일 수 있는 쪽부터 줄이는데,
+   * 바닥이 없으면 코드 창을 0 까지 눌러버린다 (실제로 0px 이 됐다).
+   * 바닥을 주면 대신 입력 칸이 줄어든다 — 자바스크립트 없이 늘 맞는다. */
+  min-height: 120px;
   background: var(--panel-2);
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
   font-size: 13px;
@@ -258,23 +261,60 @@ main {
 }
 
 /* ---- 입력(stdin) ---- */
-.io { border-top: 1px solid var(--line); background: var(--panel); }
+.io {
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  /* 높이를 여기서 들고, 안의 textarea 가 남은 자리를 채운다. 이렇게 해야
+   * 창이 좁아질 때 브라우저가 이 칸을 줄여준다 — 줄이라고 시킬 필요가 없다. */
+  height: 168px;
+  min-height: 54px;
+  flex: 0 1 auto;
+  overflow: hidden;
+}
 .io-head {
   padding: 5px 12px 2px;
   font-size: 11px;
   color: var(--dim);
 }
 .io-head .hint { color: #4d5668; margin-left: 6px; }
+/* 편집기와 입력 칸 사이의 손잡이. 세로로 끌어 높이를 바꾼다.
+ * textarea 의 기본 손잡이(오른쪽 아래 모서리)는 너무 작아 아무도 못 찾는다. */
+.io-grip {
+  height: 8px;
+  margin-top: -1px;                 /* .io 의 위 테두리 위에 겹쳐 놓는다 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: ns-resize;
+  touch-action: none;               /* 손가락으로 끌 때 화면이 같이 밀리지 않게 */
+}
+.io-grip::before {
+  content: "";
+  width: 44px;
+  height: 3px;
+  border-radius: 3px;
+  /* 테두리색(--line)으로 두면 배경에 묻혀 끌 수 있는 줄인지 모른다.
+     한 단계 밝게 둬서 "여기를 잡으라"는 게 보이게 한다. */
+  background: #39425a;
+  transition: background .12s ease;
+}
+.io-grip:hover::before, .io-grip.on::before { background: var(--bar-hot); }
+/* 끄는 동안 글자가 잡히면 드래그가 끊긴다 */
+body.io-dragging { user-select: none; cursor: ns-resize; }
+
 #stdin {
   display: block;
   width: 100%;
-  height: 62px;
+  flex: 1 1 auto;
+  min-height: 0;                    /* 이게 없으면 안 줄어들어 .io 를 밀어낸다 */
   padding: 2px 12px 8px;
   background: transparent;
   color: var(--text);
   border: 0;
   outline: 0;
-  resize: vertical;
+  resize: none;                     /* 위 손잡이로만 바꾼다. 두 가지가 겹치면 헷갈린다 */
   font-family: "D2Coding", "Consolas", ui-monospace, monospace;
   font-size: 12px;
   line-height: 18px;

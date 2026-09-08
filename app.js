@@ -148,6 +148,9 @@ function doRun(auto) {
     const before = $("stdin").value.replace(/\s*$/, "");
     const NL = "\n";
     $("stdin").value = (before ? before + NL : "") + run.made.join(NL) + NL;
+    // 지어낸 줄이 칸보다 길면 늘린다. 스크롤해야 보이는 값은 안 보이는 값이다.
+    // 사용자가 일부러 크게 해둔 칸을 줄이지는 않는다.
+    if (stdinEl.scrollHeight > stdinEl.clientHeight) fitIoHeight();
     saveDraft();
     log("입력 " + run.made.length + "줄을 지어내 넣었습니다. 입력 칸에서 고쳐 다시 실행할 수 있습니다.", "note");
   }
@@ -298,6 +301,77 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+/* ---- 입력 칸 높이 ----
+ * 지어낸 입력이 일곱 줄인데 칸은 세 줄이었다. 스크롤해야 무엇을 먹였는지 보인다.
+ * 무엇을 먹였는지 안 보이면 그건 거짓말하는 그림이다 — 그래서 칸을 늘리고,
+ * 끌어서 바꿀 수 있게 했다. 바꾼 높이는 코드와 같이 브라우저에 남긴다. */
+const stdinEl = $("stdin");
+const ioEl = document.querySelector(".io");
+const IO_MIN = 54;                 // 세 줄. 이보다 작으면 입력 칸인지도 모르겠다
+
+/* 높이는 .io 가 들고 있다. textarea 가 아니라 여기에 걸어야, 창이 좁아졌을 때
+ * 브라우저가 알아서 줄여준다 (CSS 의 .editor-wrap min-height 와 짝이다).
+ * 상한을 자바스크립트로 다시 재서 씌우려 해봤지만, 창이 가려져 화면을 안 그리는
+ * 동안에는 크기 변화 알림이 아예 안 온다. 그때도 맞아야 하니 CSS 에 맡긴다. */
+function setIoHeight(px, save) {
+  const h = Math.round(Math.max(IO_MIN, px));
+  ioEl.style.height = h + "px";
+  if (save !== false) scheduleSave();
+  return h;
+}
+
+function fitIoHeight() {
+  // 손잡이와 머리말이 차지하는 몫은 **접기 전에** 재야 한다. 접은 뒤에 재면
+  // 둘 다 0 이라 어림값을 쓰게 되고, 그 어림이 몇 px 모자라 끝 줄이 잘렸다.
+  const chrome = Math.max(0, ioEl.clientHeight - stdinEl.clientHeight);
+  // scrollHeight 는 지금 높이에 갇히므로 한 번 접었다가 잰다.
+  const keep = ioEl.style.height;
+  ioEl.style.height = "0px";
+  const content = stdinEl.scrollHeight;
+  ioEl.style.height = keep;
+  // 입력이 아주 길면 화면에 다 못 담는다. 지금 화면이 내줄 수 있는 만큼까지만
+  // 요청한다 — 안 그러면 3000px 짜리 높이가 저장돼 큰 화면에서 튀어나온다.
+  const want = content + chrome + 6;
+  const ew = document.querySelector(".editor-wrap");
+  const room = ioEl.clientHeight + (ew ? ew.clientHeight : 0) - 120;
+  // 화면을 못 재는 순간(창이 가려져 아직 안 그린 때)엔 room 이 0 이나 음수로
+  // 나온다. 그때 이걸 상한으로 쓰면 칸이 세 줄로 쪼그라든다 — 늘리려고 부른
+  // 함수가 줄여버리는 셈이다. 못 잴 땐 상한을 걸지 않는다. 어차피 CSS 가 막는다.
+  return setIoHeight(room > IO_MIN ? Math.min(want, room) : want);
+}
+
+(() => {
+  const grip = $("ioGrip");
+  if (!grip) return;
+  let startY = 0, startH = 0, on = false;
+
+  grip.addEventListener("pointerdown", (e) => {
+    on = true;
+    startY = e.clientY;
+    startH = ioEl.getBoundingClientRect().height;
+    grip.classList.add("on");
+    document.body.classList.add("io-dragging");
+    grip.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  grip.addEventListener("pointermove", (e) => {
+    if (!on) return;
+    // 손잡이를 위로 끌면 칸이 커진다. 그래서 뺀다.
+    setIoHeight(startH - (e.clientY - startY), false);
+  });
+  const stop = (e) => {
+    if (!on) return;
+    on = false;
+    grip.classList.remove("on");
+    document.body.classList.remove("io-dragging");
+    try { grip.releasePointerCapture(e.pointerId); } catch (err) { /* 이미 놓였다 */ }
+    scheduleSave();
+  };
+  grip.addEventListener("pointerup", stop);
+  grip.addEventListener("pointercancel", stop);
+  grip.addEventListener("dblclick", () => fitIoHeight());
+})();
+
 /* 작성 중인 코드는 브라우저에 남긴다. 새로고침 한 번에 날아가면
  * 매일 쓰는 도구로 못 쓴다. (Pyodide 로딩 때문에 새로고침이 잦다) */
 const SAVE_KEY = "algoviz.draft";
@@ -306,6 +380,7 @@ function saveDraft() {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       code: codeEl.value, stdin: $("stdin").value, stopLine,
+      ioH: parseInt(ioEl.style.height, 10) || 0,
     }));
   } catch (e) { /* 사생활 보호 모드 등에서 막힐 수 있다. 저장 실패는 무시한다 */ }
 }
@@ -319,6 +394,7 @@ function loadDraft() {
     codeEl.value = d.code;
     $("stdin").value = d.stdin || "";
     stopLine = Number(d.stopLine) || 0;
+    if (d.ioH) setIoHeight(d.ioH, false);
     return true;
   } catch (e) { return false; }
 }
