@@ -549,7 +549,9 @@ const VizDetect = (() => {
     // 아무 그림도 못 받은 쌍 목록을 마지막에 줍는다 (위 findPairLists 주석 참고).
     const drawnAll = new Set(blocks.map((b) => b.name));
     const pairLists = findPairLists(timeline, seen, drawnAll, claimed);
-    for (const x of pairLists) blocks.push(x);
+    for (const x of pairLists) { blocks.push(x); drawnAll.add(x.name); }
+    const buckets = findBuckets(timeline, seen, drawnAll, claimed);
+    for (const x of buckets) blocks.push(x);
 
     const RANK = { objects: 0, stack: 0, graph: 0, trie: 0, series: 2 };
     for (const b of blocks) {
@@ -565,7 +567,7 @@ const VizDetect = (() => {
     const liveNames = new Set(blocks.map((b) => b.name));
     const liveScatters = scatters.filter((x) => liveNames.has(x.name));
 
-    return { arrays, grids, chars, forests, heaps, objects, containers, intervals, tries, pairLists,
+    return { arrays, grids, chars, forests, heaps, objects, containers, intervals, tries, pairLists, buckets,
              flags, counts, memoGrids, pairHeaps, scatters: liveScatters, records, sequences, sets, charGrids, segtrees, bitmasks, ranges, source,
              sections: findSections(source),
              branches: branchOutcomes(timeline, source),
@@ -898,6 +900,47 @@ const VizDetect = (() => {
    * **한 열이라도 숫자가 아닐 때만** 여기서 그린다. */
   const REC_ROWS = 40;
   const PAIR_ROWS = 24;
+  const BUCKET_MAX = 16;
+
+  /* ---------- 통 나누기 (기수·계수 정렬, 해시 체이닝) ----------
+   * bucket = [[170, 90], [], [45], ...] 처럼 **길이가 제각각인 숫자 리스트의 리스트**.
+   * 표도 아니고(행이 안 맞는다) 그래프도 아니다(값이 인덱스 범위를 넘는다).
+   * 그래서 기수 정렬의 한복판이 통째로 안 보였다 — 정작 그 코드의 전부인데.
+   *
+   * 그래프와 헷갈릴 일은 없다. adjOf 가 "값이 이 리스트의 인덱스인가"로 먼저
+   * 가려내기 때문에, 담긴 수가 인덱스 범위를 넘는 통은 거기서 이미 떨어진다.
+   * 반대로 값이 전부 인덱스 범위 안이면 그건 정말 인접 리스트다. */
+  function findBuckets(timeline, seen, drawn, claimed) {
+    const out = [];
+    for (const k of Object.keys(seen)) {
+      if (drawn.has(k) || claimed.has(k)) continue;
+      let ok = true, frames = 0, cols = 0, ragged = false, filled = false;
+      let changed = false, prev = null;
+      for (const f of timeline) {
+        const v = f.vars[k];
+        if (v === undefined) continue;
+        if (!Array.isArray(v) || v.length < 2 || v.length > BUCKET_MAX) { ok = false; break; }
+        const lens = new Set();
+        for (const r of v) {
+          if (!Array.isArray(r) || !r.every(isNum)) { ok = false; break; }
+          lens.add(r.length);
+          if (r.length) filled = true;
+        }
+        if (!ok) break;
+        if (lens.size > 1) ragged = true;
+        frames++;
+        cols = Math.max(cols, v.length);
+        const now = JSON.stringify(v);
+        if (prev !== null && prev !== now) changed = true;
+        prev = now;
+      }
+      // 행이 다 같은 길이면 그건 표다. 한 번도 안 차면 볼 게 없다.
+      if (!ok || !ragged || !filled || !changed || frames < 2 || cols < 2) continue;
+      out.push({ kind: "buckets", name: k, cols, changes: seen[k].changes });
+    }
+    return out;
+  }
+
 
   /* ---------- 쌍 목록 (마지막에 줍는다) ----------
    * 하노이의 moves = [(1,3),(1,2), ...], 조합의 result = [(1,2),(1,3), ...] 처럼

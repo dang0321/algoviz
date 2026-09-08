@@ -198,6 +198,7 @@ const VizRender = (() => {
                                tag(b.rows + "줄 · " + b.cols + "칸짜리 묶음");
       case "sequence":  return "<b>" + b.name + "</b>" + note + tag("나온 순서");
       case "pairs":     return "<b>" + b.name + "</b>" + note + tag("쌍 " + b.rows + "개");
+      case "buckets":   return "<b>" + b.name + "</b>" + note + tag("통 " + b.cols + "칸");
       case "memogrid":  return "<b>" + b.name + "</b>" + note +
                                tag("메모 표 " + b.rows + "x" + b.cols + " · 키 (i, j)");
       case "setblock":  return "<b>" + b.name + "</b>" + note + tag("집합");
@@ -343,6 +344,22 @@ const VizRender = (() => {
         nodes.pairs[b.name] = { block, row: row2, len: -1, cells: [] };
         return;
       }
+      case "buckets": {
+        // 통마다 세로로 쌓는다. 어느 통에 무엇이 들어갔나가 이 그림의 전부다.
+        const head3 = el("div", "cont-head", block);
+        head3.textContent = "통마다 들어간 값";
+        const row3 = el("div", "bkt-row", block);
+        const cols = [];
+        for (let i = 0; i < b.cols; i++) {
+          const col = el("div", "bkt-col", row3);
+          const stack = el("div", "bkt-stack", col);
+          const lab = el("div", "bkt-label", col);
+          lab.textContent = i;
+          cols.push({ stack, sig: null });
+        }
+        nodes.buckets[b.name] = { block, cols };
+        return;
+      }
       case "setblock": {
         const row = el("div", "set-row", block);
         nodes.sets[b.name] = { block, row, seen: new Set() };
@@ -428,7 +445,7 @@ const VizRender = (() => {
     if (root !== stageEl) watchScroll(stageEl);
     root = stageEl;
     root.innerHTML = "";
-    nodes = { callTree: null, scatters: {}, records: {}, sequences: {}, pairs: {}, arrays: {}, grids: {}, ranges: {}, graphs: {}, chars: {}, forests: {}, heaps: {}, objects: null, containers: {}, intervals: {}, trie: null,
+    nodes = { callTree: null, scatters: {}, records: {}, sequences: {}, pairs: {}, buckets: {}, arrays: {}, grids: {}, ranges: {}, graphs: {}, chars: {}, forests: {}, heaps: {}, objects: null, containers: {}, intervals: {}, trie: null,
       flags: {}, counts: {}, memoGrids: {}, pairHeaps: {}, sets: {}, charGrids: {}, segtrees: {}, series: [], stack: null };
 
     // blocks 는 "많이 변한 순"이라, 화면 맨 위에 그 코드의 주인공이 온다.
@@ -1289,6 +1306,32 @@ const VizRender = (() => {
     }
   }
 
+  function refreshBuckets(V, P, frame, prev, idx) {
+    for (const bk of (plan.buckets || [])) {
+      const n = nodes.buckets[bk.name];
+      if (!n) continue;
+      const cur = V[bk.name];
+      if (!Array.isArray(cur)) { gone(n.block); continue; }
+      here(n.block);
+      const was = Array.isArray(P[bk.name]) ? P[bk.name] : null;
+      for (let i = 0; i < n.cols.length; i++) {
+        const col = n.cols[i];
+        const vals = Array.isArray(cur[i]) ? cur[i] : [];
+        const sig = JSON.stringify(vals);
+        // 안 바뀐 통은 손대지 않는다. 다시 만들면 트랜지션이 죽는다.
+        if (sig === col.sig) continue;
+        col.sig = sig;
+        col.stack.innerHTML = "";
+        const before = was && Array.isArray(was[i]) ? was[i].length : -1;
+        for (let j = 0; j < vals.length; j++) {
+          const c = el("div", "bkt-chip", col.stack);
+          c.textContent = fmt(vals[j]);
+          if (before >= 0 && j >= before) c.classList.add("head");
+        }
+      }
+    }
+  }
+
   function refreshSets(V, P, frame, prev, idx) {
     for (const st of plan.sets) {
         const n = nodes.sets[st.name];
@@ -1749,6 +1792,7 @@ const VizRender = (() => {
     refreshRecords,
     refreshSequences,
     refreshPairs,
+    refreshBuckets,
     refreshSets,
     refreshIntervals,
     refreshContainers,

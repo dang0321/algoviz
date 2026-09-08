@@ -657,6 +657,35 @@ body.io-dragging { user-select: none; cursor: ns-resize; }
 .cont-cell.next { border-color: var(--warn); background: #33281c; }
 .cont-empty { color: #4d5668; font-size: 12px; }
 
+/* ---- 통 나누기 (기수·계수 정렬) ----
+ * 통마다 세로로 쌓는다. 아래에 통 번호를 달아 "몇 번 통인가"가 바로 보이게. */
+.bkt-row { display: flex; gap: 6px; align-items: flex-end; flex-wrap: wrap; }
+.bkt-col { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.bkt-stack {
+  display: flex;
+  flex-direction: column-reverse;      /* 아래에서 위로 쌓인다 */
+  gap: 3px;
+  justify-content: flex-start;
+  min-height: 26px;
+  min-width: 34px;
+}
+.bkt-chip {
+  min-width: 34px;
+  height: 22px;
+  padding: 0 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font-family: "D2Coding", "Consolas", ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--text);
+}
+.bkt-chip.head { border-color: var(--warn); background: #33281c; font-weight: 700; }
+.bkt-label { font-size: 10px; color: var(--dim); }
+
 .grid td.cursor {
   outline: 3px solid var(--warn);
   outline-offset: -3px;
